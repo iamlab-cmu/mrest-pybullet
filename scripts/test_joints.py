@@ -4,6 +4,13 @@ import time
 import pybullet_data
 import math
 import numpy as np
+import rospy
+from std_msgs.msg import Float64MultiArray
+
+rospy.init_node("lean_angle_pub")
+pub = rospy.Publisher(
+    '/lean_angle', Float64MultiArray, queue_size=1, latch=True)
+lean_angle_msg = Float64MultiArray()
 
 
 physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
@@ -43,7 +50,7 @@ gravId = p.addUserDebugParameter("gravity", -10, 10, -10)
 for j in range(p.getNumJoints(ballbot)):
     p.changeDynamics(ballbot, j, linearDamping=0, angularDamping=0)
     info = p.getJointInfo(ballbot, j)
-    print(info)
+    # print(info)
     jointName = info[1]
     jointType = info[2]
     if (jointType == p.JOINT_PRISMATIC or jointType == p.JOINT_REVOLUTE):
@@ -82,7 +89,7 @@ while (1):
     imu_euler = p.getEulerFromQuaternion(imu_orientation)
 
     linear, angular = p.getBaseVelocity(ballbot)
-    print(imu_euler)
+    # print(imu_euler)
 
     # err_xi += imu_euler[0]/100
     # err_xi = np.clip(err_xi, -10, 10)
@@ -110,6 +117,10 @@ while (1):
                                    0,
                                    controlMode=p.TORQUE_CONTROL,
                                    force=control_torque)
+
+    lean_angle_msg.data = [euler_des_x,
+                           imu_euler[0], euler_des_y, imu_euler[1]]
+    pub.publish(lean_angle_msg)
     p.stepSimulation()
     time.sleep(0.01)
 
