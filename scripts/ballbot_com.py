@@ -7,6 +7,8 @@ import numpy as np
 import rospy
 from std_msgs.msg import Float64MultiArray
 
+sim_dt = 0.01
+
 
 def drawInertiaBox(parentUid, parentLinkIndex, color):
     dyn = p.getDynamicsInfo(parentUid, parentLinkIndex)
@@ -163,9 +165,9 @@ controller_gains = []
 controller_gains.append(p.addUserDebugParameter(
     "Kp", 0, 5000, 250))
 controller_gains.append(p.addUserDebugParameter(
-    "Kd", 0, 1000, 1))
+    "Kd", 0, 100, 10))
 controller_gains.append(p.addUserDebugParameter(
-    "Ki", 0, 1000, 1))
+    "Ki", 0, 100, 10))
 lean_angle = []
 lean_angle.append(p.addUserDebugParameter(
     "lean_angle_x", -0.2, 0.2, 0))
@@ -188,18 +190,11 @@ for j in range(p.getNumJoints(ballbot)):
         jointIds.append(j)
         paramIds.append(p.addUserDebugParameter(
             jointName.decode("utf-8"), -4, 4, 0))
-    # if (jointType == p.JOINT_SPHERICAL):
-    #     paramIds_ball.append(p.addUserDebugParameter(
-    #         jointName.decode("utf-8"), -10, 10, 0))
-    #     paramIds_ball.append(p.addUserDebugParameter(
-    #         jointName.decode("utf-8"), -10, 10, 0))
+
 
 p.changeDynamics(ballbot, 0, linearDamping=0.5, angularDamping=0.5)
 
 # COM
-# linkIndicesSim = range(p.getNumJoints(ballbot))
-# ls = p.getLinkStates(
-#     ballbot, linkIndicesSim, computeForwardKinematics=True)
 com_pos_init, com_vel_init = computeCOMposVel(ballbot)
 drawInertiaBox(ballbot, -1, [1, 0, 0])
 # drawInertiaBox(quadruped,motor_front_rightR_joint, [1,0,0])
@@ -210,6 +205,9 @@ for i in range(nJoints):
 # i gain (optional)
 err_xi = 0
 err_yi = 0
+# d gain
+err_x_prev = 0
+err_y_prev = 0
 # p.setRealTimeSimulation(1)
 while (1):
     p.setGravity(0, 0, p.readUserDebugParameter(gravId))
@@ -236,20 +234,29 @@ while (1):
     # get COM error
     ball_state = p.getLinkState(ballbot, 0)
     com_pos, com_vel = computeCOMposVel(ballbot)
+
+    # P
     err_x = com_pos[0]-ball_state[0][0]
     err_y = com_pos[1]-ball_state[0][1]
-    # print(ball_state[0][0])
+
+    # D
+    err_xd = (err_x - err_x_prev)/sim_dt
+    err_yd = (err_y - err_y_prev)/sim_dt
+    err_x_prev = err_x
+    err_y_prev = err_y
+
+    # I
     err_xi += err_x/100
     err_xi = np.clip(err_xi, -10, 10)
     err_yi += err_y/100
     err_yi = np.clip(err_yi, -10, 10)
 
-    torqueXX = - Kp * err_y - \
-        Kd*(com_vel[1]) - Ki*err_yi
-    torqueXX = np.clip(torqueXX, -20, 20)
+    torqueXX = - (Kp * err_y +
+                  Kd*err_yd + Ki*err_yi)
+    torqueXX = np.clip(torqueXX, -100, 100)
     torqueYY = Kp * err_x + \
-        Kd*(com_vel[0]) + Ki*err_xi
-    torqueYY = np.clip(torqueYY, -20, 20)
+        Kd*err_xd + Ki*err_xi
+    torqueYY = np.clip(torqueYY, -100, 100)
 
     control_torque = [torqueXX, torqueYY, 0.0]
     ball_orient = ball_state[1]
@@ -267,7 +274,7 @@ while (1):
                                    controlMode=p.TORQUE_CONTROL,
                                    force=control_torque)
 
-    COM_msg.data = [com_pos[0], com_pos[1], com_pos[2],
+    COM_msg.data = [err_x, err_y, com_pos[2],
                     control_torque[0], control_torque[1], control_torque[2]]
     lean_angle_msg.data = [euler_des_x,
                            imu_euler[0], euler_des_y, imu_euler[1]]
@@ -275,7 +282,7 @@ while (1):
     pub.publish(lean_angle_msg)
 
     p.stepSimulation()
-    time.sleep(0.01)
+    time.sleep(sim_dt)
 
 
 p.disconnect()
