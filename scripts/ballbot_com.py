@@ -1,150 +1,17 @@
+
 import os
 import pybullet as p
 import time
 import pybullet_data
 import math
 import numpy as np
-import rospy
-from std_msgs.msg import Float64MultiArray
+
+from utils import drawInertiaBox, computeCOMposVel
 
 sim_dt = 0.01
 
+use_ROS = True
 
-def drawInertiaBox(parentUid, parentLinkIndex, color):
-    dyn = p.getDynamicsInfo(parentUid, parentLinkIndex)
-    mass = dyn[0]
-    frictionCoeff = dyn[1]
-    inertia = dyn[2]
-    if (mass > 0):
-        Ixx = inertia[0]
-        Iyy = inertia[1]
-        Izz = inertia[2]
-        boxScaleX = 0.5 * math.sqrt(6 * (Izz + Iyy - Ixx) / mass)
-        boxScaleY = 0.5 * math.sqrt(6 * (Izz + Ixx - Iyy) / mass)
-        boxScaleZ = 0.5 * math.sqrt(6 * (Ixx + Iyy - Izz) / mass)
-
-        halfExtents = [boxScaleX, boxScaleY, boxScaleZ]
-        pts = [[halfExtents[0], halfExtents[1], halfExtents[2]],
-               [-halfExtents[0], halfExtents[1], halfExtents[2]],
-               [halfExtents[0], -halfExtents[1], halfExtents[2]],
-               [-halfExtents[0], -halfExtents[1], halfExtents[2]],
-               [halfExtents[0], halfExtents[1], -halfExtents[2]],
-               [-halfExtents[0], halfExtents[1], -halfExtents[2]],
-               [halfExtents[0], -halfExtents[1], -halfExtents[2]],
-               [-halfExtents[0], -halfExtents[1], -halfExtents[2]]]
-
-        p.addUserDebugLine(pts[0],
-                           pts[1],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[1],
-                           pts[3],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[3],
-                           pts[2],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[2],
-                           pts[0],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-
-        p.addUserDebugLine(pts[0],
-                           pts[4],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[1],
-                           pts[5],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[2],
-                           pts[6],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[3],
-                           pts[7],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-
-        p.addUserDebugLine(pts[4 + 0],
-                           pts[4 + 1],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 1],
-                           pts[4 + 3],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 3],
-                           pts[4 + 2],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-        p.addUserDebugLine(pts[4 + 2],
-                           pts[4 + 0],
-                           color,
-                           1,
-                           parentObjectUniqueId=parentUid,
-                           parentLinkIndex=parentLinkIndex)
-
-
-def computeCOMposVel(uid: int):
-    """Compute center-of-mass position and velocity."""
-    jointIndices = range(nJoints)
-    link_states = p.getLinkStates(uid, jointIndices, computeLinkVelocity=1)
-    link_pos = np.array([s[0] for s in link_states])
-    link_vel = np.array([s[-2] for s in link_states])
-    tot_mass = 0.
-    masses = []
-    for j in jointIndices:
-        mass_, *_ = p.getDynamicsInfo(uid, j)
-        masses.append(mass_)
-        tot_mass += mass_
-
-    # add base position and velocity (Link_Body, id -1)
-    body_mass, *_ = p.getDynamicsInfo(uid, -1)
-    tot_mass += body_mass
-
-    body_position, body_orientation = p.getBasePositionAndOrientation(uid)
-    body_vel_linear, body_vel_angular = p.getBaseVelocity(uid)
-
-    masses = np.asarray(masses)[:, None]
-    com_pos = np.sum(masses * link_pos, axis=0) / tot_mass
-    com_pos += body_mass * np.asarray(body_position) / tot_mass
-    com_vel = np.sum(masses * link_vel, axis=0) / tot_mass
-    com_vel += body_mass * np.asarray(body_vel_linear) / tot_mass
-    return com_pos, com_vel
-
-
-rospy.init_node("lean_angle_pub")
-
-COM_pub = pub = rospy.Publisher(
-    '/COM', Float64MultiArray, queue_size=1, latch=True)
-COM_msg = Float64MultiArray()
-pub = rospy.Publisher(
-    '/lean_angle', Float64MultiArray, queue_size=1, latch=True)
-lean_angle_msg = Float64MultiArray()
 
 physicsClient = p.connect(p.GUI)  # or p.DIRECT for non-graphical version
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
@@ -195,12 +62,11 @@ for j in range(p.getNumJoints(ballbot)):
 p.changeDynamics(ballbot, 0, linearDamping=0.5, angularDamping=0.5)
 
 # COM
-com_pos_init, com_vel_init = computeCOMposVel(ballbot)
-drawInertiaBox(ballbot, -1, [1, 0, 0])
-# drawInertiaBox(quadruped,motor_front_rightR_joint, [1,0,0])
+com_pos_init, com_vel_init = computeCOMposVel(p, ballbot)
+drawInertiaBox(p, ballbot, -1, [1, 0, 0])
 
 for i in range(nJoints):
-    drawInertiaBox(ballbot, i, [0, 1, 0])
+    drawInertiaBox(p, ballbot, i, [0, 1, 0])
 
 # i gain (optional)
 err_xi = 0
@@ -209,13 +75,44 @@ err_yi = 0
 err_x_prev = 0
 err_y_prev = 0
 # p.setRealTimeSimulation(1)
+
+if use_ROS:
+    import rospy
+    from std_msgs.msg import Float64MultiArray, Header
+    from sensor_msgs.msg import JointState
+
+    def cb_right_arm(data):
+        targetPos = data.data
+        for i in range(7):
+            c = paramIds[i]
+            # targetPos = p.readUserDebugParameter(c)
+            p.setJointMotorControl2(
+                ballbot, jointIds[i], p.POSITION_CONTROL, targetPos[i], force=5 * 240.)
+
+    rospy.init_node("ballbot_pybullet")
+    #
+    COM_pub = rospy.Publisher(
+        '/COM', Float64MultiArray, queue_size=1, latch=True)
+    COM_msg = Float64MultiArray()
+
+    lean_angle_pub = rospy.Publisher(
+        'joint_states/lean_angle', JointState, queue_size=1)
+    lean_angle_msg = JointState()
+    lean_angle_msg.header = Header()
+    lean_angle_msg.name = ['xAng',	'yAng']
+
+    right_arm_sub = rospy.Subscriber(
+        "arm_right_cmd", Float64MultiArray, cb_right_arm)
+
 while (1):
     p.setGravity(0, 0, p.readUserDebugParameter(gravId))
-    for i in range(len(paramIds)):
-        c = paramIds[i]
-        targetPos = p.readUserDebugParameter(c)
-        p.setJointMotorControl2(
-            ballbot, jointIds[i], p.POSITION_CONTROL, targetPos, force=5 * 240.)
+    if not use_ROS:
+        # move arm with sliders
+        for i in range(len(paramIds)):
+            c = paramIds[i]
+            targetPos = p.readUserDebugParameter(c)
+            p.setJointMotorControl2(
+                ballbot, jointIds[i], p.POSITION_CONTROL, targetPos, force=5 * 240.)
 
     # Balancing Controller
     Kp = p.readUserDebugParameter(controller_gains[0])
@@ -233,7 +130,7 @@ while (1):
     # print(imu_euler)
     # get COM error
     ball_state = p.getLinkState(ballbot, 0)
-    com_pos, com_vel = computeCOMposVel(ballbot)
+    com_pos, com_vel = computeCOMposVel(p, ballbot)
 
     # P
     err_x = com_pos[0]-ball_state[0][0]
@@ -274,12 +171,18 @@ while (1):
                                    controlMode=p.TORQUE_CONTROL,
                                    force=control_torque)
 
-    COM_msg.data = [err_x, err_y, com_pos[2],
-                    control_torque[0], control_torque[1], control_torque[2]]
-    lean_angle_msg.data = [euler_des_x,
-                           imu_euler[0], euler_des_y, imu_euler[1]]
-    COM_pub.publish(COM_msg)
-    pub.publish(lean_angle_msg)
+    if use_ROS:
+        # update msgs
+        COM_msg.data = [err_x, err_y, com_pos[2],
+                        control_torque[0], control_torque[1], control_torque[2]]
+
+        lean_angle_msg.header = Header()
+        lean_angle_msg.position = [imu_euler[0], imu_euler[1]]
+        lean_angle_msg.velocity = [angular[0], angular[1]]
+
+        # publish
+        lean_angle_pub.publish(lean_angle_msg)
+        COM_pub.publish(COM_msg)
 
     p.stepSimulation()
     time.sleep(sim_dt)
