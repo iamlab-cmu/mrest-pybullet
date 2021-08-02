@@ -12,6 +12,8 @@ class Ballbot:
         self._urdf_path = urdf_path
         self.reset()
         self.update_robot_state()
+
+        self._arm_mode = p.POSITION_CONTROL
     
     def reset(self):
         startPos = [0, 0, 0.12]
@@ -19,11 +21,10 @@ class Ballbot:
         self.robot = p.loadURDF(self._urdf_path, startPos, startOrientation, useFixedBase=False)
         self.nJoints = p.getNumJoints(self.robot)
         
+        self.arm_joint_names = []
         self.jointIds = []
-        self.paramIds = []
-        self.paramIds_ball = []
 
-        # TODO: Ask Cornelia why this has to be done 
+        # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
         for j in range(p.getNumJoints(self.robot)):
             p.changeDynamics(self.robot, j, linearDamping=0, angularDamping=0)
@@ -33,10 +34,9 @@ class Ballbot:
             jointType = info[2]
             if (jointType == p.JOINT_PRISMATIC or jointType == p.JOINT_REVOLUTE):
                 self.jointIds.append(j)
-                self.paramIds.append(p.addUserDebugParameter(
-                    jointName.decode("utf-8"), -4, 4, 0))
-
-
+                self.arm_joint_names.append(jointName)
+        
+        self.nArmJoints = len(self.arm_joint_names)
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
     def draw_inertia_box(self):
@@ -69,6 +69,12 @@ class Ballbot:
     def get_model_id(self):
         return self.robot
 
+    def set_arm_torque_mode(self):
+        self._arm_mode = p.TORQUE_CONTROL
+    
+    def set_arm_position_mode(self):
+        self._arm_mode = p.POSITION_CONTROL
+
     def drive_imbd(self, torque_x, torque_y):
         
         # Saturate IMBD torques
@@ -95,5 +101,11 @@ class Ballbot:
                                    controlMode=p.TORQUE_CONTROL,
                                    force=torque_commands)
 
+    
+    def drive_arms(self, target_pos):
+        if self._arm_mode == p.POSITION_CONTROL:
+            for i in range(self.nArmJoints):
+                p.setJointMotorControl2(self.robot, self.jointIds[i], 
+                    p.POSITION_CONTROL,target_pos[i], force = 5 * 240.)
 
 

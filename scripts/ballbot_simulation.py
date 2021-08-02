@@ -109,7 +109,6 @@ class SimEnv(object):
 
 if __name__ == "__main__":
 
-    
     # set pybullet environment
     physicsClient = p.connect(p.GUI)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
@@ -120,6 +119,8 @@ if __name__ == "__main__":
     # set ground plane
     planeId = p.loadURDF("plane.urdf")
 
+    # load ballbot model
+    ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME)
 
     # set user debug parameters
     gravId = p.addUserDebugParameter("gravity", -10,10,-10)
@@ -135,9 +136,13 @@ if __name__ == "__main__":
         "lean_angle_x", -0.2, 0.2, 0))
     lean_angle.append(p.addUserDebugParameter(
         "lean_angle_y", -0.2, 0.2, 0))
-
-    # load ballbot model
-    ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME)
+    
+    armPosCmdId = []
+    for i in range(len(ballbot.arm_joint_names)):
+        armPosCmdId.append(p.addUserDebugParameter(
+            ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
+    
+    arm_joint_command = [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     # setup controllers
     balancing_controller = COMBalancingController()
@@ -151,16 +156,20 @@ if __name__ == "__main__":
         Kp = p.readUserDebugParameter(controller_gains[0])
         Kd = p.readUserDebugParameter(controller_gains[1])
         Ki = p.readUserDebugParameter(controller_gains[2])
-        balancing_controller.set_gains(Kp,Ki,Kd)
 
         # desired lean angle
         euler_des_x = p.readUserDebugParameter(lean_angle[0])
         euler_des_y = p.readUserDebugParameter(lean_angle[1])
+
+        # desired arm joint angles
+        for i in range(len(ballbot.arm_joint_names)):
+            arm_joint_command[i] = p.readUserDebugParameter(armPosCmdId[i])
         
         # Update robot state
         ballbot.update_robot_state()
 
         # Calculate controller output
+        balancing_controller.set_gains(Kp,Ki,Kd)
         balancing_controller.calculate_error_value(
             ballbot.com_pos[0],ballbot.ball_state[0][0],
             ballbot.com_pos[1],ballbot.ball_state[0][1],
@@ -173,6 +182,7 @@ if __name__ == "__main__":
         torque_xx = balancing_controller.torque_y_nm
 
         # Apply torque to robot 
+        ballbot.drive_arms(arm_joint_command)
         ballbot.drive_imbd(torque_xx,torque_yy)
 
         p.stepSimulation()
