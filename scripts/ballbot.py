@@ -17,7 +17,7 @@ class Ballbot:
     
     def reset(self):
         startPos = [0, 0, 0.12]
-        startOrientation = p.getQuaternionFromEuler([0, 0, 0])
+        startOrientation = p.getQuaternionFromEuler([0,0,0.0])
         self.robot = p.loadURDF(self._urdf_path, startPos, startOrientation, useFixedBase=False)
         self.nJoints = p.getNumJoints(self.robot)
         
@@ -47,9 +47,16 @@ class Ballbot:
         for i in range(self.nJoints):
             drawInertiaBox(p,self.robot,i,[0,1,0])
     
-    def get_base_orientation(self):
+    def get_body_orientation(self):
+        """ 
+            Return the body orientation 
+                body_euler = [xAngle,yAngle,yaw]
+        """
         imu_position, imu_orientation = p.getBasePositionAndOrientation(self.robot)
         imu_euler = p.getEulerFromQuaternion(imu_orientation)
+
+        body_euler = [-imu_euler[1],imu_euler[0],imu_euler[2]]
+        return body_euler
 
     def get_base_velocity(self):
         linear, angular = p.getBaseVelocity(self.robot)
@@ -61,7 +68,7 @@ class Ballbot:
         self.com_pos, self.com_vel = computeCOMposVel(p,self.robot)
 
     def update_robot_state(self):
-        self.get_base_orientation()
+        self.get_body_orientation()
         self.get_base_velocity()
         self.get_ball_state()
         self.get_com_state()

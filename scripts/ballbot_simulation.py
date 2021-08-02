@@ -11,101 +11,19 @@ import math
 import numpy as np
 import sys
 
-sys.path.insert(1, '/home/ballbot/Workspace/pybullet_ws/src/ballbot_pybullet_sim/controllers')
+PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
+
 from definitions import  * 
 from ballbot import Ballbot as ballbot_sim
 from balancing_controller import COMBalancingController
 
-PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
+
 
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = False
-
-class SimEnv(object):
-    def __init__(self):
-         # set pybullet environment
-        self.physicsClient = p.connect(p.GUI)
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
-   
-        # set environment physics
-        p.setGravity(0, 0, -10)
-
-        # set ground plane
-        planeId = p.loadURDF("plane.urdf")
-        
-        self.setup_gui()
-        
-        # Load ballbot model
-        self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME)
-
-        # Setup controller 
-        self.setup_controller()
-    
-    def setup_gui(self):
-        # set user debug parameters
-        self.gravId = p.addUserDebugParameter("gravity", -10,10,-10)
-        self.controller_gains = []
-        self.controller_gains.append(p.addUserDebugParameter(
-            "Kp", 0, 5000, 250))
-        self.controller_gains.append(p.addUserDebugParameter(
-            "Kd", 0, 100, 10))
-        self.controller_gains.append(p.addUserDebugParameter(
-            "Ki", 0, 100, 10))
-        self.lean_angle = []
-        self.lean_angle.append(p.addUserDebugParameter(
-            "lean_angle_x", -0.2, 0.2, 0))
-        self.lean_angle.append(p.addUserDebugParameter(
-            "lean_angle_y", -0.2, 0.2, 0))
-
-    def setup_controller(self):
-        # i gain (optional)
-        self.err_xi = 0
-        self.err_yi = 0
-        # d gain
-        self.err_x_prev = 0
-        self.err_y_prev = 0
-
-    def step(self):
-        # balancing controller
-        Kp = p.readUserDebugParameter(self.controller_gains[0])
-        Kd = p.readUserDebugParameter(self.controller_gains[1])
-        Ki = p.readUserDebugParameter(self.controller_gains[2])
-
-        # desired lean angle
-        euler_des_x = p.readUserDebugParameter(self.lean_angle[0])
-        euler_des_y = p.readUserDebugParameter(self.lean_angle[1])
-        
-        # Update robot state
-        self.ballbot.update_robot_state()
-
-        # P
-        err_x = self.ballbot.com_pos[0]-self.ballbot.ball_state[0][0]
-        err_y = self.ballbot.com_pos[1]-self.ballbot.ball_state[0][1]
-
-        # D
-        err_xd = (err_x - self.err_x_prev)/SIMULATION_TIME_STEP_S
-        err_yd = (err_y - self.err_y_prev)/SIMULATION_TIME_STEP_S
-        err_x_prev = err_x
-        err_y_prev = err_y
-
-        # I
-        self.err_xi += err_x/100
-        err_xi = np.clip(self.err_xi, -10, 10)
-        self.err_yi += err_y/100
-        err_yi = np.clip(self.err_yi, -10, 10)
-
-        # compute imbd torques
-        torque_x = - (Kp * err_y +
-                  Kd*err_yd + Ki*err_yi)
-        torque_y = Kp * err_x + \
-        Kd*err_xd + Ki*err_xi
-        
-        # Apply torque to robot 
-        self.ballbot.drive_imbd(torque_x,torque_y)
-
-        #p.stepSimulation()
 
 if __name__ == "__main__":
 
