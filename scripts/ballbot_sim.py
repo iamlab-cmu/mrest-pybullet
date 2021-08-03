@@ -90,7 +90,10 @@ class RobotSimulator(object):
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()
-        self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler)
+        body_orient_euler_vel = self.ballbot.get_base_velocity()
+        self.ballbot.get_ball_state()
+        ball_velocity = self.ballbot.ball_velocity
+        self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
         self.body_controller.update_com_position(self.ballbot.com_pos[0],self.ballbot.com_pos[1])
 
 

@@ -63,6 +63,11 @@ class Ballbot:
 
     def get_ball_state(self):
         self.ball_state = p.getLinkState(self.robot,0)
+        joint_state = p.getJointStateMultiDof(self.robot,0)
+        ball_orientation = self.ball_state[1]
+        velocity = p.rotateVector(ball_orientation,np.array(joint_state[1]).reshape(3,1))
+        self.ball_velocity = [velocity[1],-velocity[0],velocity[2]]
+        
 
     def get_com_state(self):
         self.com_pos, self.com_vel = computeCOMposVel(p,self.robot)

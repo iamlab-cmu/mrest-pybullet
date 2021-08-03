@@ -77,14 +77,17 @@ class BodyController(object):
         self._balancing_started = False
         self._station_keeping_started = False
 
-    def set_data(self, time_period, body_orient_euler):
+    def set_data(self, time_period, body_orient_euler,ball_velocity):
         self._actual_period = time_period
 
         # get IMU data
         self.xBodyAngle = body_orient_euler[0]
         self.yBodyAngle = body_orient_euler[1]
         self.yaw = body_orient_euler[2]
-
+        
+        self.xBallVelocity = ball_velocity[0]
+        self.yBallVelocity = ball_velocity[1]
+    
         #  COM position
         #self.xCOM = BALLBOT_COM_M * math.sin(self.xBodyAngle)
         #self.yCOM = BALLBOT_COM_M * math.sin(self.yBodyAngle)
@@ -146,9 +149,6 @@ class BodyController(object):
 
         self.xPosErr_prev = xPosErr
         self.yPosErr_prev = yPosErr
-
-        print("xPosErr: ", xPosErr)
-        print("yPosErr: ", yPosErr)
 
         #xVelErr = self.xDesiredBallVelocity - self.xBallVelocity
         #yVelErr = self.yDesiredBallVelocity - self.yBallVelocity
