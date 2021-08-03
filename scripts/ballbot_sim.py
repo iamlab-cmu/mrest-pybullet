@@ -12,7 +12,8 @@ import numpy as np
 import sys
 from enum import Enum
 
-PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+#PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
@@ -114,20 +115,29 @@ class RobotSimulator(object):
             self.body_controller.set_desired_ball_position(0,0)
             self.body_controller.set_desired_ball_velocity(0,0)
             self.body_controller.set_desired_world_velocity(0,0)
-            #self.body_controller.set_desired_com_position(self.ballbot.ball_state[0][0],self.ballbot.ball_state[0][1])
+            self.body_controller.set_desired_com_position(self.ballbot.ball_state[0][0],self.ballbot.ball_state[0][1])
 
           # Filter feedback
           self.body_controller.balance(SIMULATION_TIME_STEP_S)
         else:
           self.body_controller.clear_balancing_error_values()
         
-       # Set torque commands
-        torque_yy = -self.body_controller.xBallCurrent
-        torque_xx= self.body_controller.yBallCurrent
+        # Set torque commands
+        current_yy = -self.body_controller.xBallCurrent
+        current_xx = self.body_controller.yBallCurrent
+        torque_yy = -self.body_controller.xBallTorque
+        torque_xx= self.body_controller.yBallTorque
+
+        print("torque_xx: ", torque_xx)
+        print("torque_yy: ", torque_yy)
+        print("current_xx: ", current_xx)
+        print("current_yy: ", current_yy)
 
         # Apply torque to robot 
         self.ballbot.drive_arms(self.arm_joint_command)
-        self.ballbot.drive_imbd(torque_xx,torque_yy)
+        #self.ballbot.drive_imbd(torque_xx,torque_yy)
+        self.ballbot.drive_imbd(current_xx,current_yy)
+
       
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])

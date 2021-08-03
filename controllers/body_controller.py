@@ -57,6 +57,9 @@ class BodyController(object):
         self.xBallCurrent = 0.0
         self.yBallCurrent = 0.0
 
+        self.xPosErr_prev = 0.0
+        self.yPosErr_prev = 0.0
+
         """ Control Setpoints """
         self.xPlannedBodyAngle = 0.0
         self.yPlannedBodyAngle = 0.0
@@ -66,6 +69,8 @@ class BodyController(object):
         self._com_balancing_control = COMBalancingController()
         self._station_keeping_control = StationKeepingController()
 
+        self._balancing_control.set_gains(75,1,3)
+        self._balancing_control.set_max_current(100)
         self._com_balancing_control.set_max_torque(100)
 
         # Start status for each of the controllers
@@ -136,8 +141,17 @@ class BodyController(object):
         xPosErr = self.xCOM - self.xDesiredCOM - xTotalZeroCOM
         yPosErr = self.yCOM - self.yDesiredCOM - yTotalZeroCOM
 
-        xVelErr = self.xDesiredBallVelocity - self.xBallVelocity
-        yVelErr = self.yDesiredBallVelocity - self.yBallVelocity
+        xVelErr = xPosErr - self.xPosErr_prev/time_period_s
+        yVelErr = yPosErr - self.yPosErr_prev/time_period_s
+
+        self.xPosErr_prev = xPosErr
+        self.yPosErr_prev = yPosErr
+
+        print("xPosErr: ", xPosErr)
+        print("yPosErr: ", yPosErr)
+
+        #xVelErr = self.xDesiredBallVelocity - self.xBallVelocity
+        #yVelErr = self.yDesiredBallVelocity - self.yBallVelocity
 
         self._balancing_control.set_error_value(xPosErr, yPosErr, xVelErr, yVelErr)
         self._balancing_control.get_current_output()
@@ -145,10 +159,10 @@ class BodyController(object):
         self._com_balancing_control.calculate_error_value(self.xCOM,self.xDesiredCOM, self.yCOM, self.yDesiredCOM,time_period_s)
         self._com_balancing_control.get_torque_output()
 
-        self.xBallCurrent = self._balancingControl._x_current_amps
-        self.yBallCurrent = self._balancingControl._y_current_amps
-        #self.xBallCurrent = self._com_balancing_control.torque_x_nm
-        #self.yBallCurrent = self._com_balancing_control.torque_y_nm
+        self.xBallCurrent = self._balancing_control._x_current_amps
+        self.yBallCurrent = self._balancing_control._y_current_amps
+        self.xBallTorque = self._com_balancing_control.torque_x_nm
+        self.yBallTorque = self._com_balancing_control.torque_y_nm
     
     def station_keep(self):
         if not self._station_keeping_started:
