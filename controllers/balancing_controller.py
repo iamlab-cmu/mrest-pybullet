@@ -51,8 +51,10 @@ class COMBalancingController(object):
         self._balance_controller_YZ.set_pid_gains(kP,kI,kD)
     
     def calculate_error_value(self,x_linear_pos, x_linear_pos_ref, y_linear_pos, y_linear_pos_ref,time_period):
-       self._balance_controller_XZ.calculate_error_values(x_linear_pos,x_linear_pos_ref,time_period)
-       self._balance_controller_YZ.calculate_error_values(y_linear_pos,y_linear_pos_ref,time_period)
+        self._balance_controller_XZ.calculate_error_values(x_linear_pos,x_linear_pos_ref,time_period)
+        self._balance_controller_YZ.calculate_error_values(y_linear_pos,y_linear_pos_ref,time_period)
+        #print("BalancingController error XZ: ", self._balance_controller_XZ._error_val)
+        #print("BalancingController error YZ: ", self._balance_controller_YZ._error_val)
 
     def set_error_value(self, 
         x_linear_pos_error, 
@@ -67,8 +69,9 @@ class COMBalancingController(object):
         self._balance_controller_YZ.set_max_output(max_torque)
     
     def get_torque_output(self):
-        self.torque_x_nm = self._balance_controller_XZ.get_pid_output()
-        self.torque_y_nm = self._balance_controller_YZ.get_pid_output()
+        # NOTE: +ve torque_y affects the +ve x-linear position, -ve torque_x affects the +ve y-linear position
+        self.torque_x_nm = self._balance_controller_YZ.get_pid_output()
+        self.torque_y_nm = -self._balance_controller_XZ.get_pid_output()
     
     def clear_all_error_values(self):
         self._balance_controller_XZ.clear_error_values()

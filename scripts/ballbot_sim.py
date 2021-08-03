@@ -12,8 +12,8 @@ import numpy as np
 import sys
 from enum import Enum
 
-#PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
+PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+#PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
@@ -48,8 +48,10 @@ class RobotSimulator(object):
         planeId = p.loadURDF("plane.urdf")
              
         # Load ballbot model
-        self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME)
+        self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME,
+          startPos=[1,0,0.12],startOrientationEuler=[0,np.radians(5),np.radians(90)])
         self.ballbot_state = BallState.BALANCE
+        self.ballbot.print_model_info()
 
         self.setup_gui()
 
@@ -94,7 +96,7 @@ class RobotSimulator(object):
         self.ballbot.get_ball_state()
         ball_velocity = self.ballbot.ball_velocity
         self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
-        self.body_controller.update_com_position(self.ballbot.com_pos[0],self.ballbot.com_pos[1])
+        self.body_controller.update_com_position(self.ballbot.comPosInBodyOrient[0],self.ballbot.comPosInBodyOrient[1])
 
 
         """ Ball Commands """
@@ -118,7 +120,7 @@ class RobotSimulator(object):
             self.body_controller.set_desired_ball_position(0,0)
             self.body_controller.set_desired_ball_velocity(0,0)
             self.body_controller.set_desired_world_velocity(0,0)
-            self.body_controller.set_desired_com_position(self.ballbot.ball_state[0][0],self.ballbot.ball_state[0][1])
+            self.body_controller.set_desired_com_position(self.ballbot.ballPosInBodyOrient[0],self.ballbot.ballPosInBodyOrient[1])
 
           # Filter feedback
           self.body_controller.balance(SIMULATION_TIME_STEP_S)
@@ -128,19 +130,20 @@ class RobotSimulator(object):
         # Set torque commands
         current_yy = -self.body_controller.xBallCurrent
         current_xx = self.body_controller.yBallCurrent
-        torque_yy = -self.body_controller.xBallTorque
-        torque_xx= self.body_controller.yBallTorque
+        torque_yy = self.body_controller.yBallTorque
+        torque_xx= self.body_controller.xBallTorque
 
+        '''
         print("torque_xx: ", torque_xx)
         print("torque_yy: ", torque_yy)
         print("current_xx: ", current_xx)
         print("current_yy: ", current_yy)
+        '''
 
         # Apply torque to robot 
         self.ballbot.drive_arms(self.arm_joint_command)
-        #self.ballbot.drive_imbd(torque_xx,torque_yy)
-        self.ballbot.drive_imbd(current_xx,current_yy)
-
+        self.ballbot.drive_imbd(torque_xx,torque_yy)
+        #self.ballbot.drive_imbd(current_xx,current_yy)
       
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])
@@ -159,12 +162,19 @@ class RobotSimulator(object):
 
 if __name__ == "__main__":
 
-    # set pybullet environment
-    robot_simulator = RobotSimulator()
+  # set pybullet environment
+  robot_simulator = RobotSimulator()
+  SIMTYPE = 2
 
-    """ Main Loop """
+  """ Main Loop """
+  if(SIMTYPE == 1):
+    robot_simulator.step()
     while(1):
-      
+      x = 1
+  elif(SIMTYPE ==2):
+
+    while(1):
+    
       #TODO: READ FROM ROS
 
       robot_simulator.step()
@@ -172,4 +182,4 @@ if __name__ == "__main__":
 
       #TODO: PUBLISH TO ROS
       time.sleep(SIMULATION_TIME_STEP_S)
-
+  

@@ -155,7 +155,7 @@ class BodyController(object):
 
         self._balancing_control.set_error_value(xPosErr, yPosErr, xVelErr, yVelErr)
         self._balancing_control.get_current_output()
-
+        
         self._com_balancing_control.calculate_error_value(self.xCOM,self.xDesiredCOM, self.yCOM, self.yDesiredCOM,time_period_s)
         self._com_balancing_control.get_torque_output()
 
