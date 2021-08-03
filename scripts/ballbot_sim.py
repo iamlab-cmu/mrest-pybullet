@@ -12,8 +12,8 @@ import numpy as np
 import sys
 from enum import Enum
 
-#PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
+PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+#PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
