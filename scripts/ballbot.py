@@ -154,11 +154,16 @@ class Ballbot:
         #print("COMWorld: ", self.com_pos)
         #print("COMDrive: ", self.comPosInDriveFrame)
 
+    def get_arms_state(self):
+        self.arm_pos = [p.getJointState(self.robot, self.jointIds[i])[0] for i in range(self.nArmJoints)] 
+        self.arm_vel = [p.getJointState(self.robot, self.jointIds[i])[1] for i in range(self.nArmJoints)] 
+
     def update_robot_state(self):
         self.get_body_orientation()
         self.get_base_velocity()
         self.get_ball_state()
         self.get_com_state()
+        self.get_arms_state()
 
     def get_model_id(self):
         return self.robot
