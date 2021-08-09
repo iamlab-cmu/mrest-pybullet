@@ -11,12 +11,15 @@ class StationKeepingController(object):
         self._desired_x_body_angle = 0.0
         self._desired_y_body_angle = 0.0
 
+        self._desired_y_com = 0.0
+        self._desired_y_com = 0.0
+
         self._position_controller_XZ = PIDController()
         self._position_controller_YZ = PIDController()
 
-    def set_gains(self, kP, kI, kD):
-        self._position_controller_XZ.set_pid_gains(kP, kI, kD)
-        self._position_controller_YZ.set_pid_gains(kP, kI, kD)
+    def set_gains(self, kPx, kIx, kDx, kPy, kIy, kDy):
+        self._position_controller_XZ.set_pid_gains(kPx, kIx, kDx)
+        self._position_controller_YZ.set_pid_gains(kPy, kIy, kDy)
     
     def set_error_value(self, 
         x_linear_pos_error, 
@@ -31,9 +34,20 @@ class StationKeepingController(object):
         self._position_controller_XZ.set_max_output(max_angle)
         self._position_controller_YZ.set_max_output(max_angle)
     
+    def set_max_com_displacement(self, max_com):
+        self._position_controller_XZ.set_max_output(max_com)
+        self._position_controller_YZ.set_max_output(max_com)
+        
     def get_angle_output(self):
+        """ Use this function if Station keep in terms of body lean angle """
         self._desired_x_body_angle = math.radians(self._position_controller_XZ.get_pid_output())
         self._desired_y_body_angle = math.radians(self._position_controller_YZ.get_pid_output())
+    def get_com_output(self):
+        """ Use this function if station keep in terms of com position """
+        self._desired_x_com = self._position_controller_XZ.get_pid_output()
+        self._desired_y_com = self._position_controller_YZ.get_pid_output()
+        #print("StationKeep xCOM: ", self._desired_x_com)
+        #print("StationKeep yCOM: ", self._desired_y_com)
     
     def clear_all_error_values(self):
         self._position_controller_XZ.clear_error_values()

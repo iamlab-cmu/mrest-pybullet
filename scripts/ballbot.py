@@ -123,22 +123,29 @@ class Ballbot:
         self.ball_state = p.getLinkState(self.robot,0,1)
         joint_state = p.getJointStateMultiDof(self.robot,0)
         ball_orientation = self.ball_state[1]
-        
-        # Rotate from WORLD frame to Body frame
-        self.ballRadialVelocity = self.ball_state[7]
-        xBallVelocity = np.cos(self.bodyOrientEuler[2]) * self.ballRadialVelocity[0] - np.sin(self.bodyOrientEuler[2]) * self.ballRadialVelocity[1]
-        yBallVelocity = np.sin(self.bodyOrientEuler[2]) * self.ballRadialVelocity[0] + np.cos(self.bodyOrientEuler[2]) * self.ballRadialVelocity[1]
 
-        # Rotate from Ball frame to World frame
-        self.ball_velocity = p.rotateVector(ball_orientation,np.array(joint_state[1]).reshape(3,1))
-        # this is equivalent to the above line
-        self.ballWorldAngVelocity = self.ball_state[7]
+        # Extract ball position
         self.ballPosInWorldFrame = self.ball_state[0]
         self.ballPosInBodyOrient = self.rotateWorldToBodyFrame(self.ballPosInWorldFrame)
 
-        
-        #TODO: need to get ball velocity in body frame
+        # Radial velocity in world frame
+        # self.ballRadialVelInWorldFrame = p.rotateVector(ball_orientation,np.array(joint_state[1]).reshape(3,1))
+        # The above is equivalent     
+        self.ballRadialVelInWorldFrame = self.ball_state[7]
+        # Roate from World frame to Body frame
+        self.ballRadialVelInBodyOrient = self.rotateWorldToBodyFrame(self.ballRadialVelInWorldFrame)
+        #print("xBallRadialVelInWorld: ", self.ballRadialVelInWorldFrame[0])
+        #print("yBallRadialVelInWorld: ", self.ballRadialVelInWorldFrame[1])
+        #print("xBallRadialVelInBody: ", self.ballRadialVelInBodyFrame[0])
+        #print("yBallRadialVelInBody: ", self.ballRadialVelInBodyFrame[1])
 
+        # Linear velocity in world frame
+        self.ballLinVelInWorldFrame = self.ball_state[6]
+        self.ballLinVelInBodyOrient = self.rotateWorldToBodyFrame(self.ballLinVelInWorldFrame)
+        #print("xBallLinVelInWorld: ", self.ballLinVelInWorldFrame[0])
+        #print("yBallLinVelInWorld: ", self.ballLinVelInWorldFrame[1])
+        #print("xBallLinVelInBody: ", self.ballLinVelInBodyOrient[0])
+        #print("yBallLinVelInBody: ", self.ballLinVelInBodyOrient[1])
 
     def get_com_state(self):
         self.com_pos, self.com_vel = computeCOMposVel(p,self.robot)

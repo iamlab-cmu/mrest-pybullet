@@ -12,8 +12,8 @@ import numpy as np
 import sys
 from enum import Enum
 
-PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-#PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
+#PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
@@ -35,8 +35,9 @@ class BallState(Enum):
   BALANCE_LEGS_UP = 7
   DFC=8
 
+
 class RobotSimulator(object):
-    def __init__(self):
+    def __init__(self, startPos = [0.0,0.0,0.12], startOrientationEuler=[0,0,0]):
          # set pybullet environment
         self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
@@ -49,9 +50,9 @@ class RobotSimulator(object):
              
         # Load ballbot model
         self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME,
-          startPos=[1,0,0.12],startOrientationEuler=[0,np.radians(5),np.radians(90)])
+          startPos=startPos,startOrientationEuler=startOrientationEuler)
         self.ballbot_state = BallState.BALANCE
-        self.ballbot.print_model_info()
+        #self.ballbot.print_model_info()
 
         self.setup_gui()
 
@@ -85,6 +86,22 @@ class RobotSimulator(object):
 
         self.arm_joint_command = [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
+    def update_robot_state(self, state):
+      if state == BallState.STATIC:
+        self.ballbot_state = BallState.STATIC
+        print("Ballbot state changed to STATIC")
+      elif state == BallState.BALANCE:
+        if self.ballbot_state != BallState.BALANCE:
+          self.ballbot_state = BallState.BALANCE
+          print("Ballbot state changed to BALANCE")
+      elif state == BallState.STATION_KEEP:
+        if self.ballbot_state != BallState.STATION_KEEP:
+          self.ballbot_state = BallState.STATION_KEEP
+          print("Ballbot state changed to STATION KEEP")
+      else:
+        self.ballbot_state = BallState.BALANCE
+        print("[ERROR] Invalid robot state, set by default to BALANCE")
+
     def step(self):
         # Read user params
         self.read_user_params()
@@ -94,20 +111,20 @@ class RobotSimulator(object):
         body_orient_euler = self.ballbot.get_body_orientation()
         body_orient_euler_vel = self.ballbot.get_base_velocity()
         self.ballbot.get_ball_state()
-        ball_velocity = self.ballbot.ball_velocity
-        self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
+        #self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
         self.body_controller.update_com_position(self.ballbot.comPosInBodyOrient[0],self.ballbot.comPosInBodyOrient[1])
-
+        self.body_controller.update_ball_position(self.ballbot.ballPosInBodyOrient[0], self.ballbot.ballPosInBodyOrient[1])
+        self.body_controller.update_ball_velocity(self.ballbot.ballLinVelInBodyOrient[0], self.ballbot.ballLinVelInBodyOrient[1])
 
         """ Ball Commands """
         # Station Keeping controller 
+        
         if self.ballbot_state == BallState.STATION_KEEP:
           if not self.body_controller._station_keeping_started:
-            self.body_controller.set_desired_ball_position(self.ballbot.ball_state[0],self.ballbot.ball_state[1])
+            self.body_controller.set_desired_ball_position(self.ballbot.ballPosInBodyOrient[0],self.ballbot.ballPosInBodyOrient[1])
           self.body_controller.station_keep()
         else:
           self.body_controller.clear_station_keeping_error_values()
-
 
         # Balancing controller 
         if (self.ballbot_state == BallState.BALANCE or self.ballbot_state == BallState.OLC
@@ -121,7 +138,6 @@ class RobotSimulator(object):
             self.body_controller.set_desired_ball_velocity(0,0)
             self.body_controller.set_desired_world_velocity(0,0)
             self.body_controller.set_desired_com_position(self.ballbot.ballPosInBodyOrient[0],self.ballbot.ballPosInBodyOrient[1])
-
           # Filter feedback
           self.body_controller.balance(SIMULATION_TIME_STEP_S)
         else:
@@ -177,6 +193,7 @@ if __name__ == "__main__":
     
       #TODO: READ FROM ROS
 
+      robot_simulator.update_robot_state(BallState.STATION_KEEP)
       robot_simulator.step()
       p.stepSimulation()
 
