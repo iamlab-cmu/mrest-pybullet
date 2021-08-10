@@ -30,6 +30,7 @@ if USE_ROS:
   import rospy
   from ballbot_arm_msgs.msg import ArmCommand
   from ballbot_arm_msgs.msg import ArmsJointState
+  from std_msgs.msg import Float64MultiArray
 
 class BallState(Enum):
   STATIC = 1
@@ -91,19 +92,31 @@ class RobotSimulator(object):
 
     def setup_ROS(self):
         rospy.init_node('pybullet_ballbot')
-        self.rarm_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
+        self.rarm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
         self.rarm_joint_command = [0,0,0,0,0,0,0]
-        self.larm_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/left/command", ArmCommand, self.update_larm_cmd)
+        self.larm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/left/command", ArmCommand, self.update_larm_cmd)
         self.larm_joint_command = [0,0,0,0,0,0,0]
+
+        self.rarm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
+        self.rarm_effort_command = [0,0,0,0,0,0,0]
+        self.larm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
+        self.larm_effort_command = [0,0,0,0,0,0,0]
 
         self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
         self.arms_msg = ArmsJointState()
+        print("ROS communication initialized")
 
     def update_rarm_cmd(self, msg):
         self.rarm_joint_command = msg.position
     
     def update_larm_cmd(self, msg):
         self.larm_joint_command = msg.position
+
+    def update_rarm_effort_cmd(self,msg):
+        self.rarm_joint_command = msg.data
+
+    def update_larm_effort_cmd(self,msg):
+        self.larm_joint_command = msg.data
 
     def setup_controller(self):
         self.body_controller = BodyController()

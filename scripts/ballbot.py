@@ -44,6 +44,7 @@ class Ballbot:
                 self.arm_joint_names.append(jointName)
         
         self.nArmJoints = len(self.arm_joint_names)
+        # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
     def print_model_info(self):
@@ -214,5 +215,11 @@ class Ballbot:
             for i in range(self.nArmJoints):
                 p.setJointMotorControl2(self.robot, self.jointIds[i], 
                     p.POSITION_CONTROL,target_pos[i], force = 5 * 240.)
+
+        if self._arm_mode == p.TORQUE_CONTROL:
+            for i in range(self.nArmJoints):
+                # first "unlock joint" for torque control, force = friction
+                p.setJointMotorControl2(self.robot, self.jointIds[i], p.VELOCITY_CONTROL, force=1)
+                p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = target_pos[i])
 
 
