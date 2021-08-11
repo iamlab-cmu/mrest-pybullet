@@ -15,7 +15,7 @@ class Ballbot:
 
         self.update_robot_state()
 
-        self._arm_mode = p.POSITION_CONTROL
+        self._arm_mode = p.TORQUE_CONTROL
 
         # State of the robot in BODY Frame 
         self.xAngleBody = 0.0
@@ -210,16 +210,16 @@ class Ballbot:
                                    force=torque_commands)
 
     
-    def drive_arms(self, target_pos):
+    def drive_arms(self, position_cmd, torque_cmd):
         if self._arm_mode == p.POSITION_CONTROL:
             for i in range(self.nArmJoints):
                 p.setJointMotorControl2(self.robot, self.jointIds[i], 
-                    p.POSITION_CONTROL,target_pos[i], force = 5 * 240.)
+                    p.POSITION_CONTROL,position_cmd[i], force = 5 * 240.)
 
         if self._arm_mode == p.TORQUE_CONTROL:
             for i in range(self.nArmJoints):
                 # first "unlock joint" for torque control, force = friction
                 p.setJointMotorControl2(self.robot, self.jointIds[i], p.VELOCITY_CONTROL, force=1)
-                p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = target_pos[i])
+                p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = torque_cmd[i])
 
 

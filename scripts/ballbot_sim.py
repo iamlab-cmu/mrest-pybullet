@@ -19,6 +19,7 @@ sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 from definitions import  * 
 from ballbot import Ballbot as ballbot_sim
 from body_controller import BodyController
+from arm_controller import ArmController
 
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
@@ -148,7 +149,8 @@ class RobotSimulator(object):
 
     def setup_controller(self):
         self.body_controller = BodyController()
-
+        self.rarm_controller = ArmController()
+        self.larm_controller = ArmController()
         self.arm_joint_command = [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     def update_robot_state(self, state):
@@ -218,8 +220,19 @@ class RobotSimulator(object):
         print("current_yy: ", current_yy)
         '''
 
+        """ Arm Commands """
+        self.rarm_controller.update_current_state(self.ballbot.arm_pos[0:7], self.ballbot.arm_vel[0:7])
+        self.rarm_controller.set_desired_angles(self.arm_joint_command[0:7])
+        self.rarm_controller.update(SIMULATION_TIME_STEP_S)
+        rarm_torques = self.rarm_controller.armTorques
+
+        self.larm_controller.update_current_state(self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
+        self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
+        self.larm_controller.update(SIMULATION_TIME_STEP_S)
+        larm_torques = self.larm_controller.armTorques
+
         # Apply torque to robot 
-        self.ballbot.drive_arms(self.arm_joint_command)
+        self.ballbot.drive_arms(self.arm_joint_command, np.concatenate((np.array(rarm_torques), np.array(larm_torques))))
         self.ballbot.drive_imbd(torque_xx,torque_yy)
         #self.ballbot.drive_imbd(current_xx,current_yy)
       
