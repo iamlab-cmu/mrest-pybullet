@@ -179,7 +179,7 @@ class RobotSimulator(object):
 if __name__ == "__main__":
 
   # set pybullet environment
-  robot_simulator = RobotSimulator()
+  robot_simulator = RobotSimulator(startPos=[0,0,0.12],startOrientationEuler=[0,0,0])
   SIMTYPE = 2
 
   """ Main Loop """
