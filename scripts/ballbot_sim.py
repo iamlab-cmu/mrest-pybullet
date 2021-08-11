@@ -12,8 +12,8 @@ import numpy as np
 import sys
 from enum import Enum
 
-#PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-PACKAGE_WS_PATH =  '/home/ballbot/Workspace/pybullet_ws/src/'
+# PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
@@ -23,7 +23,14 @@ from body_controller import BodyController
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = False
+USE_ROS = True
+
+if USE_ROS:
+  # ROS imports
+  import rospy
+  from ballbot_arm_msgs.msg import ArmCommand
+  from ballbot_arm_msgs.msg import ArmsJointState
+  from std_msgs.msg import Float64MultiArray
 
 class BallState(Enum):
   STATIC = 1
@@ -55,6 +62,8 @@ class RobotSimulator(object):
         #self.ballbot.print_model_info()
 
         self.setup_gui()
+        if USE_ROS:
+          self.setup_ROS()
 
         # Setup controller 
         self.setup_controller()
@@ -81,6 +90,34 @@ class RobotSimulator(object):
             self.armPosCmdId.append(p.addUserDebugParameter(
                 self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
 
+    def setup_ROS(self):
+        rospy.init_node('pybullet_ballbot')
+        self.rarm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
+        self.rarm_joint_command = [0,0,0,0,0,0,0]
+        self.larm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/left/command", ArmCommand, self.update_larm_cmd)
+        self.larm_joint_command = [0,0,0,0,0,0,0]
+
+        self.rarm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
+        self.rarm_effort_command = [0,0,0,0,0,0,0]
+        self.larm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
+        self.larm_effort_command = [0,0,0,0,0,0,0]
+
+        self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
+        self.arms_msg = ArmsJointState()
+        print("ROS communication initialized")
+
+    def update_rarm_cmd(self, msg):
+        self.rarm_joint_command = msg.position
+    
+    def update_larm_cmd(self, msg):
+        self.larm_joint_command = msg.position
+
+    def update_rarm_effort_cmd(self,msg):
+        self.rarm_joint_command = msg.data
+
+    def update_larm_effort_cmd(self,msg):
+        self.larm_joint_command = msg.data
+
     def setup_controller(self):
         self.body_controller = BodyController()
 
@@ -103,9 +140,6 @@ class RobotSimulator(object):
         print("[ERROR] Invalid robot state, set by default to BALANCE")
 
     def step(self):
-        # Read user params
-        self.read_user_params()
-
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()
@@ -174,7 +208,18 @@ class RobotSimulator(object):
         # desired arm joint angles
         for i in range(len(self.ballbot.arm_joint_names)):
             self.arm_joint_command[i] = p.readUserDebugParameter(self.armPosCmdId[i])
-        
+
+    def read_ROS_params(self):
+        self.arm_joint_command = np.concatenate((np.array(self.rarm_joint_command), np.array(self.larm_joint_command)))
+    
+    def publish_state(self):
+        self.arms_msg.header.stamp = rospy.Time.now()
+        self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:6]
+        self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:6]
+        self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
+        self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
+        self.arms_pub.publish(self.arms_msg)
+
 
 if __name__ == "__main__":
 
@@ -190,13 +235,17 @@ if __name__ == "__main__":
   elif(SIMTYPE ==2):
 
     while(1):
-    
-      #TODO: READ FROM ROS
+      # Read user params
+      robot_simulator.read_user_params()
+      if USE_ROS:
+        robot_simulator.read_ROS_params()
 
       robot_simulator.update_robot_state(BallState.STATION_KEEP)
       robot_simulator.step()
       p.stepSimulation()
 
-      #TODO: PUBLISH TO ROS
+      if USE_ROS:
+        robot_simulator.publish_state()
+
       time.sleep(SIMULATION_TIME_STEP_S)
   
