@@ -6,6 +6,7 @@
 import os
 import pybullet as p
 import pybullet_data
+import pybullet_utils.bullet_client as bc
 import time 
 import math
 import numpy as np
@@ -70,6 +71,13 @@ class RobotSimulator(object):
         self.setup_controller()
         self.read_user_params()
 
+        # setup static ballbot for arm gravity compensation
+        self.physicsClientStatic = bc.BulletClient(connection_mode=p.DIRECT)
+        self.physicsClientStatic.setGravity(0, 0, -10)
+        self.robot_static = self.physicsClientStatic.loadURDF(PACKAGE_WS_PATH + URDF_NAME, startPos, p.getQuaternionFromEuler(startOrientationEuler), useFixedBase=True)
+        for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
+          self.physicsClientStatic.changeDynamics(self.robot_static, j, linearDamping=0, angularDamping=0)
+
     def setup_gui(self):
         # set user debug parameters
         self.gravId = p.addUserDebugParameter("gravity", -10,10,-10)
@@ -92,6 +100,7 @@ class RobotSimulator(object):
                 self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
 
     def setup_ROS(self):
+      # TODO Throw error if master is not running and print statement
         rospy.init_node('pybullet_ballbot')
         ## Subscriber
         # Ball cmds and state
@@ -221,13 +230,18 @@ class RobotSimulator(object):
         '''
 
         """ Arm Commands """
+        #  calculate gravity torques
+        self.calculate_gravity_torques()
+
         self.rarm_controller.update_current_state(self.ballbot.arm_pos[0:7], self.ballbot.arm_vel[0:7])
         self.rarm_controller.set_desired_angles(self.arm_joint_command[0:7])
+        self.rarm_controller.set_gravity_torque(self.gravity_torques[0:7])
         self.rarm_controller.update(SIMULATION_TIME_STEP_S)
         rarm_torques = self.rarm_controller.armTorques
 
         self.larm_controller.update_current_state(self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
         self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
+        self.larm_controller.set_gravity_torque(self.gravity_torques[7:])
         self.larm_controller.update(SIMULATION_TIME_STEP_S)
         larm_torques = self.larm_controller.armTorques
 
@@ -270,11 +284,21 @@ class RobotSimulator(object):
         self.odom_pub.publish(self.odom_msg)
 
         self.arms_msg.header.stamp = rospy.Time.now()
-        self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:6]
-        self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:6]
+        self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:7]
+        self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:7]
         self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
         self.arms_pub.publish(self.arms_msg)
+
+    def calculate_gravity_torques(self):
+        for i in range(self.ballbot.nArmJoints):
+          # self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
+          #   p.POSITION_CONTROL,self.arm_joint_command[i], force = 5 * 240.)
+          self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
+            p.POSITION_CONTROL, self.ballbot.arm_pos[i], force = 5 * 240.)
+        for i in range(2):
+          self.physicsClientStatic.stepSimulation()
+        self.gravity_torques = [self.physicsClientStatic.getJointState(self.robot_static, self.ballbot.jointIds[i])[-1] for i in range(self.ballbot.nArmJoints)]
 
 
 if __name__ == "__main__":

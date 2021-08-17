@@ -10,7 +10,8 @@ class ArmController(object):
             self._joint_controllers[j].set_max_output(1000)
         self.desiredAngles = np.array([0.0 for j in range(self.nJoints)])
         self.desiredAngleVel = np.array([0.0 for j in range(self.nJoints)])
-        self.set_gains([[50,0,1],[50,0,1],[10,0,0.1],[10,0,0.1],[1,0,0.1],[1,0,0.1],[1,0,0.1]])
+        self.gravity_torque = np.array([0.0 for j in range(self.nJoints)])
+        self.set_gains([[50,0,1],[50,0,1],[10,0,0.1],[10,0,0.0],[1,0,0.0],[5,0,0.0],[1,0,0.0]])
 
     def set_gains(self, gains):
         for j in range(self.nJoints):
@@ -22,6 +23,9 @@ class ArmController(object):
     def set_desired_angle_vel(self, qdot):
         self.desiredAngleVel = qdot
 
+    def set_gravity_torque(self,tau):
+        self.gravity_torque = tau
+
     def update_current_state(self, qCurrent, qdotCorrent):
         self.currentAngles = qCurrent
         self.currentAngleVel = qdotCorrent
@@ -31,4 +35,4 @@ class ArmController(object):
         # VelErr = self.desiredAngleVel-self.currentAngleVel
         for j in range(self.nJoints):
             self._joint_controllers[j].calculate_error_values(self.currentAngles[j], self.desiredAngles[j],time_period_s) 
-        self.armTorques = [self._joint_controllers[j].get_pid_output() for j in range(self.nJoints)]
+        self.armTorques = [self._joint_controllers[j].get_pid_output() + self.gravity_torque[j] for j in range(self.nJoints)]
