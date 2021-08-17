@@ -291,12 +291,13 @@ class RobotSimulator(object):
         self.arms_pub.publish(self.arms_msg)
 
     def calculate_gravity_torques(self):
+        # get gravity torque for current arm state from parallel simulation
         for i in range(self.ballbot.nArmJoints):
           # self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
           #   p.POSITION_CONTROL,self.arm_joint_command[i], force = 5 * 240.)
           self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
             p.POSITION_CONTROL, self.ballbot.arm_pos[i], force = 5 * 240.)
-        for i in range(2):
+        for i in range(10):
           self.physicsClientStatic.stepSimulation()
         self.gravity_torques = [self.physicsClientStatic.getJointState(self.robot_static, self.ballbot.jointIds[i])[-1] for i in range(self.ballbot.nArmJoints)]
 
