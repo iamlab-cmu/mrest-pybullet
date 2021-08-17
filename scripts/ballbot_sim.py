@@ -29,6 +29,7 @@ USE_ROS = True
 
 if USE_ROS:
   # ROS imports
+  import rosgraph
   import rospy
   from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
   from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
@@ -100,7 +101,11 @@ class RobotSimulator(object):
                 self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
 
     def setup_ROS(self):
-      # TODO Throw error if master is not running and print statement
+        if not rosgraph.is_master_online():
+          print("------------------------------------------------------------------")
+          print("Error: ROS master is not running. Please run 'roscore' in terminal.")
+          p.disconnect()
+          raise SystemExit
         rospy.init_node('pybullet_ballbot')
         ## Subscriber
         # Ball cmds and state
