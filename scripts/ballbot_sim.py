@@ -119,9 +119,9 @@ class RobotSimulator(object):
         self.larm_joint_command = [0,0,0,0,0,0,0]
 
         self.rarm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
-        self.rarm_effort_command = [0,0,0,0,0,0,0]
+        self.rarm_torque_command = [0,0,0,0,0,0,0]
         self.larm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
-        self.larm_effort_command = [0,0,0,0,0,0,0]
+        self.larm_torque_command = [0,0,0,0,0,0,0]
 
         ## Publisher
         self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=10)
@@ -151,10 +151,10 @@ class RobotSimulator(object):
         self.larm_joint_command = msg.position
 
     def update_rarm_effort_cmd(self,msg):
-        self.rarm_joint_command = msg.data
+        self.rarm_torque_command = msg.data
 
     def update_larm_effort_cmd(self,msg):
-        self.larm_joint_command = msg.data
+        self.larm_torque_command = msg.data
 
     def setup_controller(self):
         self.body_controller = BodyController()
@@ -230,20 +230,24 @@ class RobotSimulator(object):
         '''
 
         """ Arm Commands """
-        #  calculate gravity torques
-        self.calculate_gravity_torques()
+        if self.ballbot._arm_mode==p.POSITION_CONTROL:
+          #  calculate gravity torques
+          self.calculate_gravity_torques()
 
-        self.rarm_controller.update_current_state(self.ballbot.arm_pos[0:7], self.ballbot.arm_vel[0:7])
-        self.rarm_controller.set_desired_angles(self.arm_joint_command[0:7])
-        self.rarm_controller.set_gravity_torque(self.gravity_torques[0:7])
-        self.rarm_controller.update(SIMULATION_TIME_STEP_S)
-        rarm_torques = self.rarm_controller.armTorques
+          self.rarm_controller.update_current_state(self.ballbot.arm_pos[0:7], self.ballbot.arm_vel[0:7])
+          self.rarm_controller.set_desired_angles(self.arm_joint_command[0:7])
+          self.rarm_controller.set_gravity_torque(self.gravity_torques[0:7])
+          self.rarm_controller.update(SIMULATION_TIME_STEP_S)
+          rarm_torques = self.rarm_controller.armTorques
 
-        self.larm_controller.update_current_state(self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
-        self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
-        self.larm_controller.set_gravity_torque(self.gravity_torques[7:])
-        self.larm_controller.update(SIMULATION_TIME_STEP_S)
-        larm_torques = self.larm_controller.armTorques
+          self.larm_controller.update_current_state(self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
+          self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
+          self.larm_controller.set_gravity_torque(self.gravity_torques[7:])
+          self.larm_controller.update(SIMULATION_TIME_STEP_S)
+          larm_torques = self.larm_controller.armTorques
+        else:
+          rarm_torques = self.rarm_torque_command
+          larm_torques = self.larm_torque_command
 
         # Apply torque to robot 
         self.ballbot.drive_arms(self.arm_joint_command, np.concatenate((np.array(rarm_torques), np.array(larm_torques))))
