@@ -34,7 +34,7 @@ class Ballbot:
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
         for j in range(p.getNumJoints(self.robot)):
-            p.changeDynamics(self.robot, j, linearDamping=0, angularDamping=0)
+            p.changeDynamics(self.robot, j, linearDamping=0.5, angularDamping=0.5)
             info = p.getJointInfo(self.robot, j)
             # print(info)
             jointName = info[1]
@@ -210,16 +210,16 @@ class Ballbot:
                                    force=torque_commands)
 
     
-    def drive_arms(self, target_pos):
-        if self._arm_mode == p.POSITION_CONTROL:
-            for i in range(self.nArmJoints):
-                p.setJointMotorControl2(self.robot, self.jointIds[i], 
-                    p.POSITION_CONTROL,target_pos[i], force = 5 * 240.)
+    def drive_arms(self, position_cmd, torque_cmd):
+        #     for i in range(self.nArmJoints):
+        #         p.setJointMotorControl2(self.robot, self.jointIds[i],
+        #             p.POSITION_CONTROL,position_cmd[i], force = 5 * 240.)
 
-        if self._arm_mode == p.TORQUE_CONTROL:
-            for i in range(self.nArmJoints):
-                # first "unlock joint" for torque control, force = friction
-                p.setJointMotorControl2(self.robot, self.jointIds[i], p.VELOCITY_CONTROL, force=1)
-                p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = target_pos[i])
+        for i in range(self.nArmJoints):
+            # first "unlock joint" for torque control, force = friction
+            dyn_friction_coeff = 0.5
+            static_friction = 1.0 if self.arm_vel[i]<0.01 else 0.0
+            p.setJointMotorControl2(self.robot, self.jointIds[i], p.VELOCITY_CONTROL, force=static_friction + abs(dyn_friction_coeff*self.arm_vel[i]))
+            p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = torque_cmd[i])
 
 

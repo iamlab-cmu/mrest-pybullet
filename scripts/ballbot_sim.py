@@ -6,6 +6,7 @@
 import os
 import pybullet as p
 import pybullet_data
+import pybullet_utils.bullet_client as bc
 import time 
 import math
 import numpy as np
@@ -13,23 +14,26 @@ import sys
 from enum import Enum
 
 # PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
+#PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
+PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
 sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
 from definitions import  * 
 from ballbot import Ballbot as ballbot_sim
 from body_controller import BodyController
+from arm_controller import ArmController
 
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = True
+USE_ROS = False
 
 if USE_ROS:
   # ROS imports
+  import rosgraph
   import rospy
-  from ballbot_arm_msgs.msg import ArmCommand
-  from ballbot_arm_msgs.msg import ArmsJointState
+  from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
+  from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
   from std_msgs.msg import Float64MultiArray
 
 class BallState(Enum):
@@ -74,6 +78,13 @@ class RobotSimulator(object):
         self.olcCmdYAng = 0.0
         self.olcCmdXVel = 0.0
         self.olcCmdYVel = 0.0
+        
+        # setup static ballbot for arm gravity compensation
+        self.physicsClientStatic = bc.BulletClient(connection_mode=p.DIRECT)
+        self.physicsClientStatic.setGravity(0, 0, -10)
+        self.robot_static = self.physicsClientStatic.loadURDF(PACKAGE_WS_PATH + URDF_NAME, startPos, p.getQuaternionFromEuler(startOrientationEuler), useFixedBase=True)
+        for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
+          self.physicsClientStatic.changeDynamics(self.robot_static, j, linearDamping=0, angularDamping=0)
 
     def setup_gui(self):
         # set user debug parameters
@@ -96,20 +107,53 @@ class RobotSimulator(object):
         self.olc_cmd.append(p.addUserDebugParameter("olc_cmd_YAng", -0.2, 0.2, 0.))
         
     def setup_ROS(self):
+        if not rosgraph.is_master_online():
+          print("------------------------------------------------------------------")
+          print("Error: ROS master is not running. Please run 'roscore' in terminal.")
+          p.disconnect()
+          raise SystemExit
         rospy.init_node('pybullet_ballbot')
+        ## Subscriber
+        # Ball cmds and state
+        self.olc_cmd_sub = rospy.Subscriber("/rt/olc_cmd", OlcCmd, self.update_olc_cmd)
+        self.olc_command = {'xAng': 0.0, 'yAng': 0.0,'xVel': 0.0,'yVel': 0.0}
+
+        self.vel_cmd_sub = rospy.Subscriber("/rt/vel_cmd", VelCmd, self.update_vel_cmd)
+        self.vel_command = {'xVel': 0.0,'yVel': 0.0}
+
+        self.state_cmd_sub = rospy.Subscriber("/rt/state_cmd", State, self.update_state_cmd)
+
+        # Arms
         self.rarm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
         self.rarm_joint_command = [0,0,0,0,0,0,0]
         self.larm_joint_sub = rospy.Subscriber("/ballbotArms/controller/joint_impedance/left/command", ArmCommand, self.update_larm_cmd)
         self.larm_joint_command = [0,0,0,0,0,0,0]
 
         self.rarm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
-        self.rarm_effort_command = [0,0,0,0,0,0,0]
+        self.rarm_torque_command = [0,0,0,0,0,0,0]
         self.larm_effort_sub = rospy.Subscriber("/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
-        self.larm_effort_command = [0,0,0,0,0,0,0]
+        self.larm_torque_command = [0,0,0,0,0,0,0]
 
+        ## Publisher
+        self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=10)
+        self.odom_msg = Odom()
         self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
         self.arms_msg = ArmsJointState()
         print("ROS communication initialized")
+
+    def update_olc_cmd(self,msg):
+        self.olc_command['xAng']=msg.xAng
+        self.olc_command['yAng']=msg.yAng
+        self.olc_command['xVel']=msg.xVel
+        self.olc_command['yVel']=msg.yVel
+
+    def update_vel_cmd(self,msg):
+        self.olc_command['xVel']=msg.velX
+        self.olc_command['yVel']=msg.velY
+
+    def update_state_cmd(self,msg):
+        # self.state_command['ballState'] = msg.ballState
+        self.update_robot_state(BallState(msg.ballState))
 
     def update_rarm_cmd(self, msg):
         self.rarm_joint_command = msg.position
@@ -118,14 +162,15 @@ class RobotSimulator(object):
         self.larm_joint_command = msg.position
 
     def update_rarm_effort_cmd(self,msg):
-        self.rarm_joint_command = msg.data
+        self.rarm_torque_command = msg.data
 
     def update_larm_effort_cmd(self,msg):
-        self.larm_joint_command = msg.data
+        self.larm_torque_command = msg.data
 
     def setup_controller(self):
         self.body_controller = BodyController()
-
+        self.rarm_controller = ArmController()
+        self.larm_controller = ArmController()
         self.arm_joint_command = [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     def update_robot_state(self, state):
@@ -204,8 +249,28 @@ class RobotSimulator(object):
         print("current_yy: ", current_yy)
         '''
 
+        """ Arm Commands """
+        if self.ballbot._arm_mode==p.POSITION_CONTROL:
+          #  calculate gravity torques
+          self.calculate_gravity_torques()
+
+          self.rarm_controller.update_current_state(self.ballbot.arm_pos[0:7], self.ballbot.arm_vel[0:7])
+          self.rarm_controller.set_desired_angles(self.arm_joint_command[0:7])
+          self.rarm_controller.set_gravity_torque(self.gravity_torques[0:7])
+          self.rarm_controller.update(SIMULATION_TIME_STEP_S)
+          rarm_torques = self.rarm_controller.armTorques
+
+          self.larm_controller.update_current_state(self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
+          self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
+          self.larm_controller.set_gravity_torque(self.gravity_torques[7:])
+          self.larm_controller.update(SIMULATION_TIME_STEP_S)
+          larm_torques = self.larm_controller.armTorques
+        else:
+          rarm_torques = self.rarm_torque_command
+          larm_torques = self.larm_torque_command
+
         # Apply torque to robot 
-        self.ballbot.drive_arms(self.arm_joint_command)
+        self.ballbot.drive_arms(self.arm_joint_command, np.concatenate((np.array(rarm_torques), np.array(larm_torques))))
         self.ballbot.drive_imbd(torque_xx,torque_yy)
         #self.ballbot.drive_imbd(current_xx,current_yy)
       
@@ -225,14 +290,41 @@ class RobotSimulator(object):
     
     def read_ROS_params(self):
         self.arm_joint_command = np.concatenate((np.array(self.rarm_joint_command), np.array(self.larm_joint_command)))
+        # TODO ask Roberto if this should only be called if robot in OLC mode
+        self.body_controller.set_desired_body_angles(self.olc_command['xAng'],self.olc_command['yAng'])
+        self.body_controller.set_desired_ball_velocity(self.olc_command['xVel'],self.olc_command['yVel'])
     
     def publish_state(self):
+        self.odom_msg.xPos = self.ballbot.ballPosInWorldFrame[0]
+        self.odom_msg.yPos = self.ballbot.ballPosInWorldFrame[1]
+        # TODO make sure this is the yaw we want here and all these properties are correct
+        self.odom_msg.yaw = self.ballbot.bodyOrientEuler[2]
+        self.odom_msg.xVel = self.ballbot.ballLinVelInWorldFrame[0]
+        self.odom_msg.yVel = self.ballbot.ballLinVelInWorldFrame[1]
+        self.odom_msg.xAng = self.ballbot.bodyOrientEuler[0]
+        self.odom_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        self.odom_msg.xAngVel = self.ballbot.ballRadialVelInBodyOrient[0]
+        self.odom_msg.yAngVel = self.ballbot.ballRadialVelInBodyOrient[1]
+        self.odom_pub.publish(self.odom_msg)
+
         self.arms_msg.header.stamp = rospy.Time.now()
-        self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:6]
-        self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:6]
+        self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:7]
+        self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:7]
         self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
         self.arms_pub.publish(self.arms_msg)
+
+    def calculate_gravity_torques(self):
+        # get gravity torque for current arm state from parallel simulation
+        for i in range(self.ballbot.nArmJoints):
+          # self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
+          #   p.POSITION_CONTROL,self.arm_joint_command[i], force = 5 * 240.)
+          self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
+            p.POSITION_CONTROL, self.ballbot.arm_pos[i], force = 5 * 240.)
+        for i in range(10):
+          self.physicsClientStatic.stepSimulation()
+        self.gravity_torques = [self.physicsClientStatic.getJointState(self.robot_static, self.ballbot.jointIds[i])[-1] for i in range(self.ballbot.nArmJoints)]
+
 
 if __name__ == "__main__":
 
@@ -246,14 +338,12 @@ if __name__ == "__main__":
     while(1):
       x = 1
   elif(SIMTYPE ==2):
-
+    robot_simulator.update_robot_state(BallState.OLC)
     while(1):
       # Read user params
       robot_simulator.read_user_params()
       if USE_ROS:
         robot_simulator.read_ROS_params()
-
-      robot_simulator.update_robot_state(BallState.OLC)
       robot_simulator.step()
       p.stepSimulation()
 
