@@ -25,6 +25,9 @@ class BodyController(object):
         self.xBallVelocity = 0.0
         self.yBallVelocity = 0.0
 
+        self.yawAng = 0.0
+        self.yaAngVel = 0.0
+
         """ Control Variables """
         self.xDesiredCOM = 0.0
         self.yDesiredCOM = 0.0
@@ -86,16 +89,24 @@ class BodyController(object):
         # get IMU data
         self.xBodyAngle = body_orient_euler[0]
         self.yBodyAngle = body_orient_euler[1]
-        self.yaw = body_orient_euler[2]
+        self.yawAng = body_orient_euler[2]
+        print("xBodyAngle: ", self.xBodyAngle)
+        print("yBodyAngle: ", self.yBodyAngle)
         
-        self.xBallVelocity = ball_velocity[0]
-        self.yBallVelocity = ball_velocity[1]
+        #self.xBallVelocity = ball_velocity[0]
+        #self.yBallVelocity = ball_velocity[1]
     
         #  COM position
         #self.xCOM = BALLBOT_COM_M * math.sin(self.xBodyAngle)
         #self.yCOM = BALLBOT_COM_M * math.sin(self.yBodyAngle)
 
         # Ball position and velocity
+    def update_body_orient(self,body_orient_euler):
+        # get IMU data
+        self.xBodyAngle = body_orient_euler[0]
+        self.yBodyAngle = body_orient_euler[1]
+        self.yawAng = body_orient_euler[2]
+
     def update_com_position(self,xCOM,yCOM):
         self.xCOM = xCOM
         self.yCOM = yCOM
@@ -113,18 +124,61 @@ class BodyController(object):
         self.yPlannedBodyAngle = plannedYAngle
 
     def set_desired_body_angles(self, desiredXAngle, desiredYAngle):
+        """
+            set desired body angles [rad]
+
+            @param[in] desiredXAngle body angle in body frame [rad]
+            @param[in] desiredYAngle body angle in body frame [rad]
+        """
         self.xDesiredBodyAngle = desiredXAngle
         self.yDesiredBodyAngle = desiredYAngle
         
         # convert to desired com position
-        self.xDesiredCOM = BALLBOT_COM_M * math.sin(self.xDesiredBodyAngle)
-        self.yDesiredCOM = BALLBOT_COM_M * math.sin(self.yDesiredBodyAngle)
+        yDesiredBodyCOM = BALLBOT_COM_M * math.sin(self.xDesiredBodyAngle)
+        xDesiredBodyCOM = BALLBOT_COM_M * math.sin(self.yDesiredBodyAngle)
+        # TODO: eventually want to set COM pos in body frame
+        xDesiredCOM = self.xBallPosition + xDesiredBodyCOM
+        yDesiredCOM = self.yBallPosition + yDesiredBodyCOM
+        self.set_desired_com_position(xDesiredCOM,yDesiredCOM)
 
+    def set_desired_angles_odom_frame(self, desiredXAngle, desiredYAngle):
+        # TODO: Implement rotation onces yaw DOF is added
+        #heading = self.yawAng
+        #bodyXAngleDesired = math.cos(heading) * desiredXAngle + math.sin(heading) * desiredYangle
+        #bodyYAngleDesired = -math.sin(heading) * desiredXAngle + math.cos(heading) * desiredYangle
+        bodyXAngleDesired = desiredXAngle
+        bodyYAngleDesired = desiredYAngle
+        self.set_desired_body_angles(bodyXAngleDesired, bodyYAngleDesired)
+
+    def set_desired_velocity_odom_frame(self, desiredXVel, desiredYVel):
+        xDesiredWorldVelocity = desiredXVel
+        yDesiredWorldVelocity = desiredYVel
+        
+        #heading = self.yawAng
+        #xDesiredBallVelocity = math.cos(heading) * desiredXVel + math.sin(heading) * desiredYVel
+        #yDesiredBallVelocity = -math.sin(heading) * desiredXVel + math.cos(heading) * desiredYVel
+        self.xDesiredBallVelocity = xDesiredWorldVelocity
+        self.yDesiredBallVelocity = yDesiredWorldVelocity
+        
     def set_desired_com_position(self, desiredXPos, desiredYPos):
+        """
+            set the desired com position [m]
+
+            @param[in] desiredXPos ball position in world frame but body oriented
+            @param[in] desiredYPos ball position in world frame but body oriented 
+
+            TODO: change so imput is in body frame, not int world frame
+        """
         self.xDesiredCOM = desiredXPos
         self.yDesiredCOM = desiredYPos
  
     def set_desired_ball_position(self, desiredXPos, desiredYPos):
+        """
+            set the desired ball position [m]
+
+            @param[in] desiredXPos ball position in world frame but body oriented
+            @param[in] desiredYPos ball position in world frame but body oriented
+        """
         self.xDesiredBallPosition = desiredXPos
         self.yDesiredBallPosition = desiredYPos
     
