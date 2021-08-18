@@ -116,10 +116,9 @@ class RobotSimulator(object):
         ## Subscriber
         # Ball cmds and state
         self.olc_cmd_sub = rospy.Subscriber("/rt/olc_cmd", OlcCmd, self.update_olc_cmd)
-        self.olc_command = {'xAng': 0.0, 'yAng': 0.0,'xVel': 0.0,'yVel': 0.0}
+        self.olc_command_ROS = {'xAng': 0.0, 'yAng': 0.0,'xVel': 0.0,'yVel': 0.0}
 
         self.vel_cmd_sub = rospy.Subscriber("/rt/vel_cmd", VelCmd, self.update_vel_cmd)
-        self.vel_command = {'xVel': 0.0,'yVel': 0.0}
 
         self.state_cmd_sub = rospy.Subscriber("/rt/state_cmd", State, self.update_state_cmd)
 
@@ -142,14 +141,14 @@ class RobotSimulator(object):
         print("ROS communication initialized")
 
     def update_olc_cmd(self,msg):
-        self.olc_command['xAng']=msg.xAng
-        self.olc_command['yAng']=msg.yAng
-        self.olc_command['xVel']=msg.xVel
-        self.olc_command['yVel']=msg.yVel
+        self.olc_command_ROS['xAng']=msg.xAng
+        self.olc_command_ROS['yAng']=msg.yAng
+        self.olc_command_ROS['xVel']=msg.xVel
+        self.olc_command_ROS['yVel']=msg.yVel
 
     def update_vel_cmd(self,msg):
-        self.olc_command['xVel']=msg.velX
-        self.olc_command['yVel']=msg.velY
+        self.olc_command_ROS['xVel']=msg.velX
+        self.olc_command_ROS['yVel']=msg.velY
 
     def update_state_cmd(self,msg):
         # self.state_command['ballState'] = msg.ballState
@@ -291,8 +290,10 @@ class RobotSimulator(object):
     def read_ROS_params(self):
         self.arm_joint_command = np.concatenate((np.array(self.rarm_joint_command), np.array(self.larm_joint_command)))
         # TODO ask Roberto if this should only be called if robot in OLC mode
-        self.body_controller.set_desired_body_angles(self.olc_command['xAng'],self.olc_command['yAng'])
-        self.body_controller.set_desired_ball_velocity(self.olc_command['xVel'],self.olc_command['yVel'])
+        self.olcCmdXAng = self.olc_command_ROS['xAng']
+        self.olcCmdYAng = self.olc_command_ROS['yAng']
+        self.olcCmdXVel = self.olc_command_ROS['xVel']
+        self.olcCmdYVel = self.olc_command_ROS['yVel']
     
     def publish_state(self):
         self.odom_msg.xPos = self.ballbot.ballPosInWorldFrame[0]

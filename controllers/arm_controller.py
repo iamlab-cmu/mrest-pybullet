@@ -11,7 +11,7 @@ class ArmController(object):
         self.desiredAngles = np.array([0.0 for j in range(self.nJoints)])
         self.desiredAngleVel = np.array([0.0 for j in range(self.nJoints)])
         self.gravity_torque = np.array([0.0 for j in range(self.nJoints)])
-        self.set_gains([[100,0,1],[50,0,1],[50,0,1],[30,0,1],[30,0,1],[30,0,1],[30,0,1]])
+        self.set_gains([[100,0,1],[50,0,1],[50,0,1],[30,0,1],[30,0,1],[30,0,1],[10,0,0.1]])
 
     def set_gains(self, gains):
         for j in range(self.nJoints):
