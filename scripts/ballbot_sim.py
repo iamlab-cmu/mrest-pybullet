@@ -60,6 +60,12 @@ class RobotSimulator(object):
         self.setup_controller()
         self.read_user_params()
 
+        # Control Variables
+        self.olcCmdXAng = 0.0
+        self.olcCmdYAng = 0.0
+        self.olcCmdXVel = 0.0
+        self.olcCmdYVel = 0.0
+
     def setup_gui(self):
         # set user debug parameters
         self.gravId = p.addUserDebugParameter("gravity", -10,10,-10)
@@ -70,16 +76,15 @@ class RobotSimulator(object):
             "Kd", 0, 100, 10))
         self.controller_gains.append(p.addUserDebugParameter(
             "Ki", 0, 100, 10))
-        self.lean_angle = []
-        self.lean_angle.append(p.addUserDebugParameter(
-            "lean_angle_x", -0.2, 0.2, 0))
-        self.lean_angle.append(p.addUserDebugParameter(
-            "lean_angle_y", -0.2, 0.2, 0))
-
         self.armPosCmdId = []
         for i in range(len(self.ballbot.arm_joint_names)):
             self.armPosCmdId.append(p.addUserDebugParameter(
                 self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
+
+        # OLC CMDS
+        self.olc_cmd = []
+        self.olc_cmd.append(p.addUserDebugParameter("olc_cmd_XAng", -0.2, 0.2, 0.))
+        self.olc_cmd.append(p.addUserDebugParameter("olc_cmd_YAng", -0.2, 0.2, 0.))
 
     def setup_controller(self):
         self.body_controller = BodyController()
@@ -98,6 +103,10 @@ class RobotSimulator(object):
         if self.ballbot_state != BallState.STATION_KEEP:
           self.ballbot_state = BallState.STATION_KEEP
           print("Ballbot state changed to STATION KEEP")
+      elif state == BallState.OLC:
+        if self.ballbot_state != BallState.OLC:
+          self.ballbot_state = BallState.OLC
+          print("Ballbot state changed to OLC")
       else:
         self.ballbot_state = BallState.BALANCE
         print("[ERROR] Invalid robot state, set by default to BALANCE")
@@ -112,19 +121,24 @@ class RobotSimulator(object):
         body_orient_euler_vel = self.ballbot.get_base_velocity()
         self.ballbot.get_ball_state()
         #self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
+        self.body_controller.update_body_orient(body_orient_euler)
         self.body_controller.update_com_position(self.ballbot.comPosInBodyOrient[0],self.ballbot.comPosInBodyOrient[1])
         self.body_controller.update_ball_position(self.ballbot.ballPosInBodyOrient[0], self.ballbot.ballPosInBodyOrient[1])
         self.body_controller.update_ball_velocity(self.ballbot.ballLinVelInBodyOrient[0], self.ballbot.ballLinVelInBodyOrient[1])
 
         """ Ball Commands """
         # Station Keeping controller 
-        
         if self.ballbot_state == BallState.STATION_KEEP:
           if not self.body_controller._station_keeping_started:
             self.body_controller.set_desired_ball_position(self.ballbot.ballPosInBodyOrient[0],self.ballbot.ballPosInBodyOrient[1])
           self.body_controller.station_keep()
         else:
           self.body_controller.clear_station_keeping_error_values()
+
+        # Outer Loop controller
+        if self.ballbot_state == BallState.OLC:
+          self.body_controller.set_desired_angles_odom_frame(self.olcCmdXAng,self.olcCmdYAng)
+          self.body_controller.set_desired_velocity_odom_frame(self.olcCmdXVel, self.olcCmdYVel)
 
         # Balancing controller 
         if (self.ballbot_state == BallState.BALANCE or self.ballbot_state == BallState.OLC
@@ -167,13 +181,13 @@ class RobotSimulator(object):
         Ki = p.readUserDebugParameter(self.controller_gains[2])
         self.body_controller._com_balancing_control.set_gains(Kp,Ki,Kd)
 
-        # desired lean angle
-        euler_des_x = p.readUserDebugParameter(self.lean_angle[0])
-        euler_des_y = p.readUserDebugParameter(self.lean_angle[1])
-
         # desired arm joint angles
         for i in range(len(self.ballbot.arm_joint_names)):
             self.arm_joint_command[i] = p.readUserDebugParameter(self.armPosCmdId[i])
+
+        # olc cmds
+        self.olcCmdXAng = p.readUserDebugParameter(self.olc_cmd[0])
+        self.olcCmdYAng = p.readUserDebugParameter(self.olc_cmd[1])
         
 
 if __name__ == "__main__":
@@ -193,7 +207,7 @@ if __name__ == "__main__":
     
       #TODO: READ FROM ROS
 
-      robot_simulator.update_robot_state(BallState.STATION_KEEP)
+      robot_simulator.update_robot_state(BallState.OLC)
       robot_simulator.step()
       p.stepSimulation()
 
