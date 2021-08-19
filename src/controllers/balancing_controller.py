@@ -1,6 +1,6 @@
 """ PID Balancing Controller """
 
-from controllers import PIDController
+from .basic_controllers import PIDController
 
 class BalancingController(object):
     """ Initialize balancing controller class """

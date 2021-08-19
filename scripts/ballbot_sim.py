@@ -1,32 +1,33 @@
-# Copyright Roberto Shu 2021
+#!/usr/bin/env python
+#  Copyright Microdynamic Systems Laboratory 2021
+#  
+# @author Cornelia Bauer <cornelib@andrew.cmu.edu>
+# @author Roberto Shu <rshum@cmu.edu>
 #
 # @brief Python script to launch a ballbot simulation in pybuller
 #
 
-import os
 import pybullet as p
 import pybullet_data
 import pybullet_utils.bullet_client as bc
 import time 
-import math
 import numpy as np
-import sys
 from enum import Enum
 
 # PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
 #PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
 PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
-sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
+#sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
 
-from definitions import  * 
+from controllers.definitions import  * 
 from ballbot import Ballbot as ballbot_sim
-from body_controller import BodyController
-from arm_controller import ArmController
+from controllers.body_controller import BodyController
+from controllers.arm_controller import ArmController
 
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = True
+USE_ROS = False
 
 if USE_ROS:
   # ROS imports
@@ -45,7 +46,6 @@ class BallState(Enum):
   VEL_CONTROL = 6
   BALANCE_LEGS_UP = 7
   DFC=8
-
 
 class RobotSimulator(object):
     def __init__(self, startPos = [0.0,0.0,0.12], startOrientationEuler=[0,0,0]):

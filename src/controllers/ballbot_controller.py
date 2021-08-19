@@ -1,6 +1,6 @@
 """ Ballbot Main control loop """
 
-from controllers import BodyController
+from .basic_controllers import BodyController
 
 class BallbotController(object):
   def __init__(self):

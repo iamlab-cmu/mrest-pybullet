@@ -1,9 +1,8 @@
 """ Ballbot body controller """
-
 import math
-from definitions import *
-from balancing_controller import BalancingController, COMBalancingController
-from outer_loop_controllers import StationKeepingController
+from .definitions import *
+from .balancing_controller import BalancingController, COMBalancingController
+from .outer_loop_controllers import StationKeepingController
 
 class BodyController(object):
     def __init__(self):
