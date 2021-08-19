@@ -14,11 +14,6 @@ import time
 import numpy as np
 from enum import Enum
 
-# PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-#PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
-PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
-#sys.path.insert(1, PACKAGE_WS_PATH + '/ballbot_pybullet_sim/controllers')
-
 from controllers.definitions import  * 
 from ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
@@ -27,15 +22,24 @@ from controllers.arm_controller import ArmController
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = False
+USE_ROS = True
 
 if USE_ROS:
   # ROS imports
   import rosgraph
   import rospy
+  import rospkg
   from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
   from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
   from std_msgs.msg import Float64MultiArray
+  
+  # Find package work space to retrieve urdf
+  rospack = rospkg.RosPack()
+  PACKAGE_WS_PATH = rospack.get_path('ballbot_arm_description').split("/ballbot_arm_description")[0]
+else:
+  # PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
+  #PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
+  PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
 
 class BallState(Enum):
   STATIC = 1

@@ -1,7 +1,7 @@
 """ Constat value definitions """
 
 """ Ballbot Model Parameters """
-URDF_NAME = "ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
+URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
 
 """ Ballbot Control Parameters """
 BALLBOT_TIME_PERIOD_MS = 2 # milliseconds
