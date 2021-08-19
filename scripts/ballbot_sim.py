@@ -15,6 +15,7 @@ import numpy as np
 from enum import Enum
 
 from controllers.definitions import  * 
+from environments.corner_env import *
 from ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
@@ -68,6 +69,9 @@ class RobotSimulator(object):
           startPos=startPos,startOrientationEuler=startOrientationEuler)
         self.ballbot_state = BallState.BALANCE
         #self.ballbot.print_model_info()
+
+        # Load environment objects
+        p.loadURDF(PACKAGE_WS_PATH+ENV_URDF_NAME,  ENV_START_POSITION, useFixedBase=True)
 
         self.setup_gui()
         if USE_ROS:
