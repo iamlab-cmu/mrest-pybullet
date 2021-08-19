@@ -1,6 +1,6 @@
 # Ballbot PyBullet Sim
 
-This package uses PyBullte to simulate the CMU ballbot. This package is currently experimental and is not guarentee to work. 
+This package uses PyBullte to simulate the CMU ballbot. This package is currently experimental and is not guarentee to work. The simulation provides a python only interface and a ROS interface (recommended). 
 
 ## Getting Started
 
@@ -24,7 +24,17 @@ This package has been tested to work with Ubuntu 16.04.
     ```
     pip install pybullet
     ```
-    
+## Installing Package
+The package has been setup to be a ROS package. Thus, DO NOT MANUALLY INVOKE setup.py, USE CATKIN INSTEAD as follows
+
+```
+$ catkin build ballbot_pybullet_sim
+```
+This will install the python modules in `/src': 
+  - controllers 
+
+Then you can source your catkin workspace `devel` folder as usual.
+
 ## Setting up ROS interface
 This requires a working ROS Kinetic/Melodic workspace which contains the ballbot packages.
 ROS workspace must contain the following packages:
