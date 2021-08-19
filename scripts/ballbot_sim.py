@@ -26,7 +26,7 @@ from arm_controller import ArmController
 # Simulation parameters
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = False
+USE_ROS = True
 
 if USE_ROS:
   # ROS imports
@@ -334,22 +334,16 @@ if __name__ == "__main__":
   SIMTYPE = 2
 
   """ Main Loop """
-  if(SIMTYPE == 1):
+  robot_simulator.update_robot_state(BallState.OLC)
+  while(1):
+    # Read user params
+    robot_simulator.read_user_params()
+    if USE_ROS:
+      robot_simulator.read_ROS_params()
     robot_simulator.step()
-    while(1):
-      x = 1
-  elif(SIMTYPE ==2):
-    robot_simulator.update_robot_state(BallState.OLC)
-    while(1):
-      # Read user params
-      robot_simulator.read_user_params()
-      if USE_ROS:
-        robot_simulator.read_ROS_params()
-      robot_simulator.step()
-      p.stepSimulation()
+    p.stepSimulation()
 
-      if USE_ROS:
-        robot_simulator.publish_state()
+    if USE_ROS:
+      robot_simulator.publish_state()
 
-      time.sleep(SIMULATION_TIME_STEP_S)
-  
+    time.sleep(SIMULATION_TIME_STEP_S)
