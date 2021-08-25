@@ -17,10 +17,14 @@ class TableEnv(object):
         startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.table = p.loadURDF("table/table.urdf", startPos, startOrientation)
-        boxStartPos = np.array(startPos) + np.array([0.,0.,0.775])
-        self.box = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/box.urdf",boxStartPos, startOrientation)
+        boxStartPos = np.array(startPos) + np.array([-0.3,0.,0.775])
+        self.box1 = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/box.urdf",boxStartPos, startOrientation)
+                
+        boxStartPos = np.array(boxStartPos) + np.array([0.,0.,0.3])
+        self.box2 = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/box.urdf",boxStartPos, startOrientation)
 
-        
+
+
 
 class KivaShelf(object):
     def __init__(self, startPos = [0.,0.,0.], startOrientationEuler = [0.,0.,0.]):

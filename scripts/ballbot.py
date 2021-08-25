@@ -25,7 +25,7 @@ class Ballbot:
     
     def reset(self,startPos,startOrientationEuler):
         startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
-        self.robot = p.loadURDF(self._urdf_path, startPos, startOrientation, useFixedBase=False)
+        self.robot = p.loadURDF(self._urdf_path, startPos, startOrientation, useFixedBase=True)
         self.nJoints = p.getNumJoints(self.robot)
         
         self.arm_joint_names = []

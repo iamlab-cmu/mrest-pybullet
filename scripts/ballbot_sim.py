@@ -73,7 +73,7 @@ class RobotSimulator(object):
 
         # Load environment objects
         #p.loadURDF(PACKAGE_WS_PATH+ENV_URDF_NAME,  ENV_START_POSITION, useFixedBase=True)
-        self.environemnt = TableEnv(startPos = [1.0,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
+        self.environemnt = TableEnv(startPos = [0.80,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
 
         self.setup_gui()
         if USE_ROS:
