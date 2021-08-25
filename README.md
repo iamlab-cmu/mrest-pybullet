@@ -24,6 +24,11 @@ This package has been tested to work with Ubuntu 16.04.
     ```
     pip install pybullet
     ```
+4. Install ros in virtualenv
+    ```
+    pip install rosinstall
+    ```
+
 ## Installing Package
 The package has been setup to be a ROS package. Thus, DO NOT MANUALLY INVOKE setup.py, USE CATKIN INSTEAD as follows
 

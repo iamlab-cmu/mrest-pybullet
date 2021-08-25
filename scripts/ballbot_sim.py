@@ -22,7 +22,9 @@ from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
 
 # Simulation parameters
-SIMULATION_TIME_STEP_S = 0.01
+# TODO: simulation time step has to be set to 1/240 as it is the default pybullet time step
+#  can be changed using p.setTimeStep()
+SIMULATION_TIME_STEP_S = 1/240. 
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
 
@@ -31,6 +33,7 @@ if USE_ROS:
   import rosgraph
   import rospy
   import rospkg
+  from rosgraph_msgs.msg import Clock
   from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
   from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
   from std_msgs.msg import Float64MultiArray
@@ -73,7 +76,7 @@ class RobotSimulator(object):
 
         # Load environment objects
         #p.loadURDF(PACKAGE_WS_PATH+ENV_URDF_NAME,  ENV_START_POSITION, useFixedBase=True)
-        self.environemnt = TableEnv(startPos = [0.80,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
+        self.environemnt = TableEnv(startPos = [1.0,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
 
         self.setup_gui()
         if USE_ROS:
@@ -144,6 +147,10 @@ class RobotSimulator(object):
         self.larm_torque_command = [0,0,0,0,0,0,0]
 
         ## Publisher
+        self.clock_pub = rospy.Publisher("/clock",Clock,queue_size=10)
+        self.sim_clock_msg = Clock()
+        self.sim_wall_time = 0.0
+
         self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=10)
         self.odom_msg = Odom()
         self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
@@ -325,6 +332,11 @@ class RobotSimulator(object):
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
         self.arms_pub.publish(self.arms_msg)
 
+    def publish_sim_time(self):
+      self.sim_wall_time += SIMULATION_TIME_STEP_S
+      self.sim_clock_msg.clock = rospy.Time.from_sec(self.sim_wall_time)
+      self.clock_pub.publish(self.sim_clock_msg)
+
     def calculate_gravity_torques(self):
         # get gravity torque for current arm state from parallel simulation
         for i in range(self.ballbot.nArmJoints):
@@ -354,6 +366,7 @@ if __name__ == "__main__":
     p.stepSimulation()
 
     if USE_ROS:
+      robot_simulator.publish_sim_time()
       robot_simulator.publish_state()
 
     time.sleep(SIMULATION_TIME_STEP_S)
