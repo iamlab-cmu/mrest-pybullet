@@ -98,10 +98,6 @@ class RobotSimulator(object):
         for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
           self.physicsClientStatic.changeDynamics(self.robot_static, j, linearDamping=0, angularDamping=0)
 
-        # Recording
-        if LOG_VIDEO:
-          self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, VIDEO_FILE_NAME)
-
     def setup_gui(self):
         # set user debug parameters
         self.gravId = p.addUserDebugParameter("gravity", -10,10,-10)
@@ -155,6 +151,15 @@ class RobotSimulator(object):
         self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
         self.arms_msg = ArmsJointState()
         print("ROS communication initialized")
+    
+    def start_video_log(self, video_file_name):
+        self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, video_file_name)
+    
+    def stop_video_log(self):
+        if self.log_id is not None:
+          p.stopStateLogging(self.log_id)
+        else:
+          print("[ERROR] no video log initialized, call start_video_log()")
 
     def update_olc_cmd(self,msg):
         self.olc_command_ROS['xAng']=msg.xAng
@@ -351,8 +356,9 @@ if __name__ == "__main__":
 
   """ Main Loop """
   robot_simulator.update_robot_state(BallState.OLC)
+  robot_simulator.start_video_log(VIDEO_FILE_NAME)
   #while(1):
-  for i in range(1000):
+  for i in range(100000):
     # Read user params
     robot_simulator.read_user_params()
     if USE_ROS:
@@ -365,5 +371,4 @@ if __name__ == "__main__":
 
     time.sleep(SIMULATION_TIME_STEP_S)
     i += 1
-  if robot_simulator.log_id is not None:
-    p.stopStateLogging(robot_simulator.log_id)
+  robot_simulator.stop_video_log()
