@@ -25,6 +25,8 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
+LOG_VIDEO = True
+VIDEO_FILE_NAME = "ballbot_grasp.mp4"
 
 if USE_ROS:
   # ROS imports
@@ -95,6 +97,10 @@ class RobotSimulator(object):
         self.robot_static = self.physicsClientStatic.loadURDF(PACKAGE_WS_PATH + URDF_NAME, startPos, p.getQuaternionFromEuler(startOrientationEuler), useFixedBase=True)
         for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
           self.physicsClientStatic.changeDynamics(self.robot_static, j, linearDamping=0, angularDamping=0)
+
+        # Recording
+        if LOG_VIDEO:
+          self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, VIDEO_FILE_NAME)
 
     def setup_gui(self):
         # set user debug parameters
@@ -345,7 +351,8 @@ if __name__ == "__main__":
 
   """ Main Loop """
   robot_simulator.update_robot_state(BallState.OLC)
-  while(1):
+  #while(1):
+  for i in range(1000):
     # Read user params
     robot_simulator.read_user_params()
     if USE_ROS:
@@ -357,3 +364,6 @@ if __name__ == "__main__":
       robot_simulator.publish_state()
 
     time.sleep(SIMULATION_TIME_STEP_S)
+    i += 1
+  if robot_simulator.log_id is not None:
+    p.stopStateLogging(robot_simulator.log_id)
