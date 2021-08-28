@@ -147,13 +147,13 @@ class RobotSimulator(object):
         self.larm_torque_command = [0,0,0,0,0,0,0]
 
         ## Publisher
-        self.clock_pub = rospy.Publisher("/clock",Clock,queue_size=10)
+        self.clock_pub = rospy.Publisher("/clock",Clock,queue_size=1000)
         self.sim_clock_msg = Clock()
         self.sim_wall_time = 0.0
 
-        self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=10)
+        self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=1000)
         self.odom_msg = Odom()
-        self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
+        self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
         print("ROS communication initialized")
 
