@@ -11,6 +11,7 @@ import pybullet as p
 import pybullet_data
 import pybullet_utils.bullet_client as bc
 import time 
+from datetime import datetime
 import numpy as np
 from enum import Enum
 
@@ -26,7 +27,7 @@ SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
 LOG_VIDEO = True
-VIDEO_FILE_NAME = "ballbot_grasp.mp4"
+VIDEO_FILE_NAME = "ballbot_grasp"
 
 if USE_ROS:
   # ROS imports
@@ -153,7 +154,10 @@ class RobotSimulator(object):
         print("ROS communication initialized")
     
     def start_video_log(self, video_file_name):
-        self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, video_file_name)
+        # augment filename with date and time
+        dt_string = datetime.now().strftime("-%Y-%m-%d-%H-%M-%S")
+        file_name = video_file_name + dt_string + ".mp4"
+        self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, file_name)
     
     def stop_video_log(self):
         if self.log_id is not None:
@@ -352,13 +356,12 @@ if __name__ == "__main__":
 
   # set pybullet environment
   robot_simulator = RobotSimulator(startPos=[0,0,0.12],startOrientationEuler=[0,0,0])
-  SIMTYPE = 2
 
   """ Main Loop """
   robot_simulator.update_robot_state(BallState.OLC)
   robot_simulator.start_video_log(VIDEO_FILE_NAME)
-  #while(1):
-  for i in range(100000):
+  
+  while(1):
     # Read user params
     robot_simulator.read_user_params()
     if USE_ROS:
@@ -370,5 +373,5 @@ if __name__ == "__main__":
       robot_simulator.publish_state()
 
     time.sleep(SIMULATION_TIME_STEP_S)
-    i += 1
+    #i += 1
   robot_simulator.stop_video_log()
