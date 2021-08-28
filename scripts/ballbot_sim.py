@@ -11,10 +11,13 @@ import pybullet as p
 import pybullet_data
 import pybullet_utils.bullet_client as bc
 import time 
+from datetime import datetime
 import numpy as np
 from enum import Enum
 
 from controllers.definitions import  * 
+from environments.corner_env import *
+from environments.environments import TableEnv
 from ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
@@ -23,6 +26,8 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 0.01
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
+LOG_VIDEO = True
+VIDEO_FILE_NAME = "ballbot_grasp"
 
 if USE_ROS:
   # ROS imports
@@ -68,6 +73,10 @@ class RobotSimulator(object):
           startPos=startPos,startOrientationEuler=startOrientationEuler)
         self.ballbot_state = BallState.BALANCE
         #self.ballbot.print_model_info()
+
+        # Load environment objects
+        #p.loadURDF(PACKAGE_WS_PATH+ENV_URDF_NAME,  ENV_START_POSITION, useFixedBase=True)
+        self.environemnt = TableEnv(startPos = [0.80,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
 
         self.setup_gui()
         if USE_ROS:
@@ -143,6 +152,18 @@ class RobotSimulator(object):
         self.arms_pub =rospy.Publisher("/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=10)
         self.arms_msg = ArmsJointState()
         print("ROS communication initialized")
+    
+    def start_video_log(self, video_file_name):
+        # augment filename with date and time
+        dt_string = datetime.now().strftime("-%Y-%m-%d-%H-%M-%S")
+        file_name = video_file_name + dt_string + ".mp4"
+        self.log_id = p.startStateLogging(p.STATE_LOGGING_VIDEO_MP4, file_name)
+    
+    def stop_video_log(self):
+        if self.log_id is not None:
+          p.stopStateLogging(self.log_id)
+        else:
+          print("[ERROR] no video log initialized, call start_video_log()")
 
     def update_olc_cmd(self,msg):
         self.olc_command_ROS['xAng']=msg.xAng
@@ -335,10 +356,11 @@ if __name__ == "__main__":
 
   # set pybullet environment
   robot_simulator = RobotSimulator(startPos=[0,0,0.12],startOrientationEuler=[0,0,0])
-  SIMTYPE = 2
 
   """ Main Loop """
   robot_simulator.update_robot_state(BallState.OLC)
+  robot_simulator.start_video_log(VIDEO_FILE_NAME)
+  
   while(1):
     # Read user params
     robot_simulator.read_user_params()
@@ -351,3 +373,5 @@ if __name__ == "__main__":
       robot_simulator.publish_state()
 
     time.sleep(SIMULATION_TIME_STEP_S)
+    #i += 1
+  robot_simulator.stop_video_log()

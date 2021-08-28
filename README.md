@@ -23,6 +23,11 @@ This package has been tested to work with Ubuntu 16.04.
 3. Pybullet can be installed using
     ```
     pip install pybullet
+
+4. To record a video of the simulation you will need to install ffmpeg:
+    ```
+    sudo apt-get update
+    sudo apt-get install ffmpeg
     ```
 ## Installing Package
 The package has been setup to be a ROS package. Thus, DO NOT MANUALLY INVOKE setup.py, USE CATKIN INSTEAD as follows

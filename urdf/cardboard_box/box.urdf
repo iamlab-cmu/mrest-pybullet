@@ -1,0 +1,24 @@
+
+<robot name="cardboard_box">
+    <material name="Blue">
+        <color rgba="0 0.5 1 1.0"/>
+    </material>
+
+    <link name="link">
+      <inertial>
+        <mass value="2.0"/>
+        <inertia  ixx = "0.041666667" ixy = "0" ixz ="0" iyy = "0.056666667" iyz ="0" izz = "0.068333333"/>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <box size=".5 0.4 0.3"/>
+        </geometry>
+      </collision>
+      <visual>
+        <geometry>
+          <box size=".5 0.4 0.3"/>
+          <!--mesh filename="package://urdf/cardboard_box/meshes/cardboard_box.dae"/-->
+        </geometry>
+      </visual>
+    </link>
+</robot> 
