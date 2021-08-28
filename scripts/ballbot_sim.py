@@ -28,7 +28,7 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 1/240. 
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
-LOG_VIDEO = True
+LOG_VIDEO = False
 VIDEO_FILE_NAME = "ballbot_grasp"
 
 if USE_ROS:
@@ -64,7 +64,7 @@ class RobotSimulator(object):
          # set pybullet environment
         self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
-   
+
         # set environment physics
         p.setGravity(0, 0, -10)
 
@@ -83,6 +83,7 @@ class RobotSimulator(object):
 
         self.setup_gui()
         if USE_ROS:
+          p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
           self.setup_ROS()
 
         # Setup controller 
@@ -365,13 +366,14 @@ class RobotSimulator(object):
 
 
 if __name__ == "__main__":
-
   # set pybullet environment
   robot_simulator = RobotSimulator(startPos=[0,0,0.12],startOrientationEuler=[0,0,0])
 
   """ Main Loop """
   robot_simulator.update_robot_state(BallState.OLC)
-  robot_simulator.start_video_log(VIDEO_FILE_NAME)
+
+  if LOG_VIDEO:
+    robot_simulator.start_video_log(VIDEO_FILE_NAME)
   
   while(1):
     # Read user params
@@ -386,5 +388,6 @@ if __name__ == "__main__":
       robot_simulator.publish_state()
 
     time.sleep(SIMULATION_TIME_STEP_S)
-    #i += 1
-  robot_simulator.stop_video_log()
+  
+  if LOG_VIDEO:
+    robot_simulator.stop_video_log()

@@ -7,9 +7,9 @@ import os
 import numpy as np
 
 # Relative path to urdf/models folder
+# TODO: not sure if this is the cleanest way of doing it
 dirname = os.path.dirname(__file__)
-foldername= os.path.join(dirname, '../urdf/')
-URDF_FOLDER_NAME = '/home/ballbot/Workspace/pybullet_ws/src/ballbot_pybullet_sim/urdf/'
+URDF_FOLDER_NAME = dirname.replace('src/environments','urdf/')
 
 class Colors(object):
     def __init__(self):
