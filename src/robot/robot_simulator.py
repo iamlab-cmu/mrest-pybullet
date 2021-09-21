@@ -28,8 +28,6 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 1/240.
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
-LOG_VIDEO = False
-VIDEO_FILE_NAME = "ballbot_grasp"
 
 if USE_ROS:
     # ROS imports
@@ -88,9 +86,8 @@ class RobotSimulator(object):
         self.ballbot_state = BallState.BALANCE
         # self.ballbot.print_model_info()
 
-        # Load environment objects
-        #p.loadURDF(PACKAGE_WS_PATH+ENV_URDF_NAME,  ENV_START_POSITION, useFixedBase=True)
-        #self.environemnt = TableEnv(startPos = [1.0,0.,0.], startOrientationEuler = [0.,0.,np.radians(90.)])
+        # By default have an empty environment
+        self.environemnt = None
 
         self.setup_gui()
         if USE_ROS:
@@ -187,6 +184,9 @@ class RobotSimulator(object):
             "/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
         print("ROS communication initialized")
+
+    def setup_environment(self, env):
+        self.environemnt = env
 
     def start_video_log(self, video_file_name):
         # augment filename with date and time
@@ -404,32 +404,3 @@ class RobotSimulator(object):
             self.physicsClientStatic.stepSimulation()
         self.gravity_torques = [self.physicsClientStatic.getJointState(
             self.robot_static, self.ballbot.jointIds[i])[-1] for i in range(self.ballbot.nArmJoints)]
-
-
-if __name__ == "__main__":
-    # set pybullet environment
-    robot_simulator = RobotSimulator(
-        startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, 0])
-
-    """ Main Loop """
-    robot_simulator.update_robot_state(BallState.OLC)
-
-    if LOG_VIDEO:
-        robot_simulator.start_video_log(VIDEO_FILE_NAME)
-
-    while(1):
-        # Read user params
-        robot_simulator.read_user_params()
-        if USE_ROS:
-            robot_simulator.read_ROS_params()
-        robot_simulator.step()
-        p.stepSimulation()
-
-        if USE_ROS:
-            robot_simulator.publish_sim_time()
-            robot_simulator.publish_state()
-
-        time.sleep(SIMULATION_TIME_STEP_S)
-
-    if LOG_VIDEO:
-        robot_simulator.stop_video_log()

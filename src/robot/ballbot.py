@@ -2,7 +2,7 @@
 import pybullet as p
 import numpy as np
 
-from controllers.definitions import *
+from robot.definitions import *
 from utils import drawInertiaBox, computeCOMposVel
 from transformation import *
 
@@ -16,8 +16,8 @@ class Ballbot:
 
         self.update_robot_state()
 
-        # self._arm_mode = p.POSITION_CONTROL
-        self._arm_mode = p.TORQUE_CONTROL
+        self._arm_mode = p.POSITION_CONTROL
+        #self._arm_mode = p.TORQUE_CONTROL
 
         # State of the robot in BODY Frame
         self.xAngleBody = 0.0

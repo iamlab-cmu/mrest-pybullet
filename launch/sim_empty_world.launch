@@ -1,0 +1,13 @@
+<launch>
+  
+  <!-- these are the arguments you can pass this launch file -->
+  <arg name="paused"        default="true"/>
+  <arg name="use_sim_time"  default="true"/>
+
+  <!-- set use_sim_time flag -->
+  <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+
+  <!-- Main pybullet sim node-->
+  <node name="ballbot_pybullet_sim" pkg="ballbot_pybullet_sim" type="sim_empty_world.py" respawn="false" output="screen"/>
+
+</launch>
