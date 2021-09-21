@@ -3,6 +3,7 @@
 import pybullet as p
 import numpy as np
 
+from controllers.definitions import  * 
 from utils import drawInertiaBox, computeCOMposVel
 from transformation import *
 
@@ -46,6 +47,14 @@ class Ballbot:
         self.nArmJoints = len(self.arm_joint_names)
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
+    
+    def set_initial_config(self,joint_positions):
+        for jointIndex in range(self.nJoints):
+            p.resetJointState(self.robot, jointIndex, joint_positions[jointIndex])
+
+    def set_arms_intial_config(self,joint_positions):
+        for i in range(self.nArmJoints):
+            p.resetJointState(self.robot,self.jointIds[i], joint_positions[i])
 
     def print_model_info(self):
         print("num bodies: ", p.getNumBodies())
@@ -211,15 +220,12 @@ class Ballbot:
 
     
     def drive_arms(self, position_cmd, torque_cmd):
-        #     for i in range(self.nArmJoints):
-        #         p.setJointMotorControl2(self.robot, self.jointIds[i],
-        #             p.POSITION_CONTROL,position_cmd[i], force = 5 * 240.)
-
         for i in range(self.nArmJoints):
             # first "unlock joint" for torque control, force = friction
-            dyn_friction_coeff = 0.5
-            static_friction = 1.0 if self.arm_vel[i]<0.01 else 0.0
+            # TODO: Where did this model for friction came from? Since a force is being direction has to be set. 
+            dyn_friction_coeff = JOINT_DYNAMIC_FRICTION
+            static_friction = JOINT_STATIC_FRICTION if abs(self.arm_vel[i])<STICTION_VEL_THRESHOLD else 0.0
             p.setJointMotorControl2(self.robot, self.jointIds[i], p.VELOCITY_CONTROL, force=static_friction + abs(dyn_friction_coeff*self.arm_vel[i]))
-            p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = torque_cmd[i])
+            #p.setJointMotorControl2(self.robot, self.jointIds[i], p.TORQUE_CONTROL, force = torque_cmd[i])
 
 
