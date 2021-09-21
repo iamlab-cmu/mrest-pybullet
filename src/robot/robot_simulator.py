@@ -253,6 +253,10 @@ class RobotSimulator(object):
             print("[ERROR] Invalid robot state, set by default to BALANCE")
 
     def step(self):
+
+        # Update robot sensors
+        self.ballbot.lidar.update()
+
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()

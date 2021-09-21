@@ -5,6 +5,7 @@ import numpy as np
 from robot.definitions import *
 from utils import drawInertiaBox, computeCOMposVel
 from transformation import *
+from sensors.lidar import Lidar
 
 MAX_IMBD_TORQUE_NM = 100
 
@@ -18,6 +19,9 @@ class Ballbot:
 
         self._arm_mode = p.POSITION_CONTROL
         #self._arm_mode = p.TORQUE_CONTROL
+
+        # Add Sensors
+        self.lidar = Lidar()
 
         # State of the robot in BODY Frame
         self.xAngleBody = 0.0
