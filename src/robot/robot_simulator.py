@@ -77,14 +77,15 @@ class RobotSimulator(object):
                                    startPos=startPos, startOrientationEuler=startOrientationEuler)
 
         # TODO make a cleaner version for setting initial state pose.
-        joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
+        joint_positions = [0.0,0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
         self.ballbot.set_initial_config(joint_positions)
         arm_joint_position = [0, 0, 0, 1.5, 0, 0, 0, 0, 0, 0, -1.5, 0, 0, 0]
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
-        # self.ballbot.print_model_info()
+        #self.ballbot.print_model_info()
+        #self.ballbot.print_joint_info()
 
         # By default have an empty environment
         self.environemnt = None

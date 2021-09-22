@@ -26,3 +26,6 @@ LARM_JOINT_NAMES = ('JLA1', 'JLA2', 'JLA3', 'JLA4', 'JLA5', 'JLA6', 'JLA7')
 RARM_JOINT_NAMES = ('JRA1', 'JRA2', 'JRA3', 'JRA4', 'JRA5', 'JRA6', 'JRA7')
 ARMS_JOINT_NAMES = LARM_JOINT_NAMES + RARM_JOINT_NAMES
 STICTION_VEL_THRESHOLD = 0.01  # Rad/sec
+
+""" Ballbot Sensor Parameters """
+BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF

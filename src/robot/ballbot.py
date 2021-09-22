@@ -21,7 +21,7 @@ class Ballbot:
         #self._arm_mode = p.TORQUE_CONTROL
 
         # Add Sensors
-        self.lidar = Lidar()
+        self.lidar = Lidar(self.robot, self.linkIds[BODY_LASER_LINK_NAME])
 
         # State of the robot in BODY Frame
         self.xAngleBody = 0.0
@@ -37,13 +37,11 @@ class Ballbot:
         self.arm_joint_names = []
         self.jointIds = []
 
-        # Debug: Check joint damping
-        self.print_joint_info()
-
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
 
         # Extract arm joint information
+        self.linkIds = {}
         for j in range(p.getNumJoints(self.robot)):
             p.changeDynamics(self.robot, j, linearDamping=0.5,
                              angularDamping=0.5)
@@ -51,6 +49,11 @@ class Ballbot:
             jointName = info[1]
             jointType = info[2]
 
+            # Store link Ids
+            linkName = info[12].decode('UTF-8')
+            self.linkIds[linkName] = j
+
+            # Store arm joint ids
             if (jointType == p.JOINT_PRISMATIC or jointType == p.JOINT_REVOLUTE):
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
@@ -58,9 +61,6 @@ class Ballbot:
         self.nArmJoints = len(self.arm_joint_names)
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
-
-        print("------------------------")
-        self.print_joint_info()
 
     def set_initial_config(self, joint_positions):
         for jointIndex in range(self.nJoints):
@@ -73,6 +73,7 @@ class Ballbot:
 
     def print_model_info(self):
         print("num bodies: ", p.getNumBodies())
+        print("info1: ", p.getBodyInfo(self.robot))
         for i in range(p.getNumBodies()):
             print("info: ", p.getBodyInfo(i))
         # for i in range(p.getNumBodies()):
@@ -85,6 +86,7 @@ class Ballbot:
             print("Joint ID: ", info[0], ", Name: ", info[1])
             print(" Damping: ", info[6])
             print(" Friction: ", info[7])
+            print(" Link: ", info[12])
 
     def draw_inertia_box(self):
         # body
