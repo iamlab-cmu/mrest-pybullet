@@ -38,6 +38,7 @@ if USE_ROS:
     from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
+    from sensor_msgs.msg import LaserScan
 
     # Find package work space to retrieve urdf
     rospack = rospkg.RosPack()
@@ -77,15 +78,15 @@ class RobotSimulator(object):
                                    startPos=startPos, startOrientationEuler=startOrientationEuler)
 
         # TODO make a cleaner version for setting initial state pose.
-        joint_positions = [0.0,0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
+        joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
         self.ballbot.set_initial_config(joint_positions)
         arm_joint_position = [0, 0, 0, 1.5, 0, 0, 0, 0, 0, 0, -1.5, 0, 0, 0]
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
-        #self.ballbot.print_model_info()
-        #self.ballbot.print_joint_info()
+        # self.ballbot.print_model_info()
+        # self.ballbot.print_joint_info()
 
         # By default have an empty environment
         self.environemnt = None
@@ -173,6 +174,12 @@ class RobotSimulator(object):
         self.larm_effort_sub = rospy.Subscriber(
             "/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
         self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
+
+        # Sensors
+        self.body_laser_pub = rospy.Publisher(
+            "/scan", LaserScan, queue_size=10)
+        self.body_laser_msg = LaserScan()
+        self.body_laser_msg.header.frame_id = BODY_LASER_LINK_NAME
 
         # Publisher
         self.clock_pub = rospy.Publisher("/clock", Clock, queue_size=1000)
@@ -392,6 +399,20 @@ class RobotSimulator(object):
         self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
         self.arms_pub.publish(self.arms_msg)
+
+    def publish_sensor_data(self):
+
+        # Body Lidar
+        self.body_laser_msg.header.stamp = rospy.Time.now()
+        self.body_laser_msg.range_min = self.ballbot.lidar.angle_min
+        self.body_laser_msg.range_max = self.ballbot.lidar.angle_max
+        self.body_laser_msg.angle_increment = self.ballbot.lidar.angle_delta
+        self.body_laser_msg.range_max = self.ballbot.lidar.range_max
+        self.body_laser_msg.range_min = self.ballbot.lidar.range_min
+
+        self.body_laser_msg.ranges = self.ballbot.lidar.get_hits()
+
+        self.body_laser_pub.publish(self.body_laser_msg)
 
     def publish_sim_time(self):
         self.sim_wall_time += SIMULATION_TIME_STEP_S

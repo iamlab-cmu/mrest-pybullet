@@ -47,6 +47,7 @@ if __name__ == "__main__":
         if USE_ROS:
             robot_simulator.publish_sim_time()
             robot_simulator.publish_state()
+            robot_simulator.publish_sensor_data()
 
         time.sleep(SIMULATION_TIME_STEP_S)
 
