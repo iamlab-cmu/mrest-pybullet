@@ -1,12 +1,13 @@
 """ Ballbot body controller """
 import math
-from .definitions import *
+from robot.definitions import *
 from .balancing_controller import BalancingController, COMBalancingController
 from .outer_loop_controllers import StationKeepingController
 
+
 class BodyController(object):
     def __init__(self):
-        
+
         self._actual_period = BALLBOT_TIME_PERIOD_MS/1000
         self.xBodyAngle = 0.0
         self.yBodyAngle = 0.0
@@ -49,7 +50,7 @@ class BodyController(object):
         self.xZeroEstCOM = 0.0
         self.xZeroArmCOM = 0.0
         self.xStationKeepCOM = 0.0
-        
+
         self.yZeroCOM = 0.0
         self.yZeroShapeCOM = 0.0
         self.yZeroEstCOM = 0.0
@@ -71,18 +72,18 @@ class BodyController(object):
         self._com_balancing_control = COMBalancingController()
         self._station_keeping_control = StationKeepingController()
 
-        self._balancing_control.set_gains(75,1,3)
+        self._balancing_control.set_gains(75, 1, 3)
         self._balancing_control.set_max_current(100)
         self._com_balancing_control.set_max_torque(100)
 
-        self._station_keeping_control.set_gains(0.1,0,-0.01, 0.01,0, -0.001)
+        self._station_keeping_control.set_gains(0.1, 0, -0.01, 0.01, 0, -0.001)
         self._station_keeping_control.set_max_com_displacement(0.1)
 
         # Start status for each of the controllers
         self._balancing_started = False
         self._station_keeping_started = False
 
-    def set_data(self, time_period, body_orient_euler,ball_velocity):
+    def set_data(self, time_period, body_orient_euler, ball_velocity):
         self._actual_period = time_period
 
         # get IMU data
@@ -91,34 +92,34 @@ class BodyController(object):
         self.yawAng = body_orient_euler[2]
         print("xBodyAngle: ", self.xBodyAngle)
         print("yBodyAngle: ", self.yBodyAngle)
-        
+
         #self.xBallVelocity = ball_velocity[0]
         #self.yBallVelocity = ball_velocity[1]
-    
+
         #  COM position
         #self.xCOM = BALLBOT_COM_M * math.sin(self.xBodyAngle)
         #self.yCOM = BALLBOT_COM_M * math.sin(self.yBodyAngle)
 
         # Ball position and velocity
-    def update_body_orient(self,body_orient_euler):
+    def update_body_orient(self, body_orient_euler):
         # get IMU data
         self.xBodyAngle = body_orient_euler[0]
         self.yBodyAngle = body_orient_euler[1]
         self.yawAng = body_orient_euler[2]
 
-    def update_com_position(self,xCOM,yCOM):
+    def update_com_position(self, xCOM, yCOM):
         self.xCOM = xCOM
         self.yCOM = yCOM
 
-    def update_ball_position(self,xBallPos, yBallPos):
+    def update_ball_position(self, xBallPos, yBallPos):
         self.xBallPosition = xBallPos
         self.yBallPosition = yBallPos
 
-    def update_ball_velocity(self,xBallVel,yBallVel):
+    def update_ball_velocity(self, xBallVel, yBallVel):
         self.xBallVelocity = xBallVel
         self.yBallVelocity = yBallVel
 
-    def set_planned_body_angles(self,plannedXAngle, plannedYAngle):
+    def set_planned_body_angles(self, plannedXAngle, plannedYAngle):
         self.xPlannedBodyAngle = plannedXAngle
         self.yPlannedBodyAngle = plannedYAngle
 
@@ -131,14 +132,14 @@ class BodyController(object):
         """
         self.xDesiredBodyAngle = desiredXAngle
         self.yDesiredBodyAngle = desiredYAngle
-        
+
         # convert to desired com position
         yDesiredBodyCOM = BALLBOT_COM_M * math.sin(self.xDesiredBodyAngle)
         xDesiredBodyCOM = BALLBOT_COM_M * math.sin(self.yDesiredBodyAngle)
         # TODO: eventually want to set COM pos in body frame
         xDesiredCOM = self.xBallPosition + xDesiredBodyCOM
         yDesiredCOM = self.yBallPosition + yDesiredBodyCOM
-        self.set_desired_com_position(xDesiredCOM,yDesiredCOM)
+        self.set_desired_com_position(xDesiredCOM, yDesiredCOM)
 
     def set_desired_angles_odom_frame(self, desiredXAngle, desiredYAngle):
         # TODO: Implement rotation onces yaw DOF is added
@@ -152,13 +153,13 @@ class BodyController(object):
     def set_desired_velocity_odom_frame(self, desiredXVel, desiredYVel):
         xDesiredWorldVelocity = desiredXVel
         yDesiredWorldVelocity = desiredYVel
-        
+
         #heading = self.yawAng
         #xDesiredBallVelocity = math.cos(heading) * desiredXVel + math.sin(heading) * desiredYVel
         #yDesiredBallVelocity = -math.sin(heading) * desiredXVel + math.cos(heading) * desiredYVel
         self.xDesiredBallVelocity = xDesiredWorldVelocity
         self.yDesiredBallVelocity = yDesiredWorldVelocity
-        
+
     def set_desired_com_position(self, desiredXPos, desiredYPos):
         """
             set the desired com position [m]
@@ -170,7 +171,7 @@ class BodyController(object):
         """
         self.xDesiredCOM = desiredXPos
         self.yDesiredCOM = desiredYPos
- 
+
     def set_desired_ball_position(self, desiredXPos, desiredYPos):
         """
             set the desired ball position [m]
@@ -180,7 +181,7 @@ class BodyController(object):
         """
         self.xDesiredBallPosition = desiredXPos
         self.yDesiredBallPosition = desiredYPos
-    
+
     def set_desired_world_position(self, desiredXPos, desiredYPos):
         self.xDesiredWorldPosition = desiredXPos
         self.yDesiredWorldPosition = desiredYPos
@@ -188,9 +189,9 @@ class BodyController(object):
     def set_desired_ball_velocity(self, desiredXVel, desiredYVel):
         self.xDesiredBallVelocity = desiredXVel
         self.yDesiredBallVelocity = desiredYVel
-    
+
     def set_desired_world_velocity(self, desiredXVel, desiredYVel):
-        self.xDesiredWorldVelocity  = desiredXVel
+        self.xDesiredWorldVelocity = desiredXVel
         self.yDesiredWorldVelocity = desiredYVel
 
     def set_zero_shape_com(self, zeroXPos, zeroYPos):
@@ -200,9 +201,11 @@ class BodyController(object):
     def balance(self, time_period_s):
         if not self._balancing_started:
             self._balancing_started = True
-        
-        xTotalZeroCOM = self.xZeroCOM + self.xZeroShapeCOM + self.xZeroEstCOM + self.xZeroArmCOM + self.xStationKeepCOM
-        yTotalZeroCOM = self.yZeroCOM + self.yZeroShapeCOM + self.yZeroEstCOM + self.yZeroArmCOM + self.yStationKeepCOM
+
+        xTotalZeroCOM = self.xZeroCOM + self.xZeroShapeCOM + \
+            self.xZeroEstCOM + self.xZeroArmCOM + self.xStationKeepCOM
+        yTotalZeroCOM = self.yZeroCOM + self.yZeroShapeCOM + \
+            self.yZeroEstCOM + self.yZeroArmCOM + self.yStationKeepCOM
 
         # x = real - desired - offset
         xPosErr = self.xCOM - self.xDesiredCOM - xTotalZeroCOM
@@ -217,12 +220,14 @@ class BodyController(object):
         #xVelErr = self.xDesiredBallVelocity - self.xBallVelocity
         #yVelErr = self.yDesiredBallVelocity - self.yBallVelocity
 
-        self._balancing_control.set_error_value(xPosErr, yPosErr, xVelErr, yVelErr)
+        self._balancing_control.set_error_value(
+            xPosErr, yPosErr, xVelErr, yVelErr)
         self._balancing_control.get_current_output()
-        
+
         #print("xCOM: ", self.xCOM, "| xDesiredCOM: ", self.xDesiredCOM)
         #print("yCOM: ", self.yCOM, "| yDesiredCOM: ", self.yDesiredCOM)
-        self._com_balancing_control.calculate_error_value(self.xCOM,self.xDesiredCOM, self.yCOM, self.yDesiredCOM,time_period_s)
+        self._com_balancing_control.calculate_error_value(
+            self.xCOM, self.xDesiredCOM, self.yCOM, self.yDesiredCOM, time_period_s)
         self._com_balancing_control.get_torque_output()
 
         self.xBallCurrent = self._balancing_control._x_current_amps
@@ -235,15 +240,16 @@ class BodyController(object):
             self._station_keeping_started = True
 
         # Position error
-        #TODO: add if statement to specificy in which frame, currently only in Body Frame
+        # TODO: add if statement to specificy in which frame, currently only in Body Frame
         xPosErr = self.xDesiredBallPosition - self.xBallPosition
         yPosErr = self.yDesiredBallPosition - self.yBallPosition
-        
+
         # Velocity error
         xVelErr = 0.0 - self.xBallVelocity
         yVelErr = 0.0 - self.yBallVelocity
 
-        self._station_keeping_control.set_error_value(xPosErr,yPosErr,xVelErr,yVelErr)
+        self._station_keeping_control.set_error_value(
+            xPosErr, yPosErr, xVelErr, yVelErr)
         self._station_keeping_control.get_com_output()
 
         #print("BallPosition: ", self.xBallPosition, ",", self.yBallPosition)
@@ -252,12 +258,13 @@ class BodyController(object):
         #print("StationKeep Y: ", self._station_keeping_control._desired_y_body_angle)
 
         # TODO: set desired COM position
-        xComPosStationKeep = self.xBallPosition + self._station_keeping_control._desired_x_com
-        yComPosStationKeep = self.yBallPosition + self._station_keeping_control._desired_y_com
-        self.set_desired_com_position(xComPosStationKeep,yComPosStationKeep)
-        #self.set_desired_body_angles(self._station_keeping_control._desired_x_body_angle,
+        xComPosStationKeep = self.xBallPosition + \
+            self._station_keeping_control._desired_x_com
+        yComPosStationKeep = self.yBallPosition + \
+            self._station_keeping_control._desired_y_com
+        self.set_desired_com_position(xComPosStationKeep, yComPosStationKeep)
+        # self.set_desired_body_angles(self._station_keeping_control._desired_x_body_angle,
         #    self._station_keeping_control._desired_y_body_angle)
-        
 
     def clear_balancing_error_values(self):
         self._balancing_control.clear_all_error_values()
