@@ -10,4 +10,5 @@
   <!-- Main pybullet sim node-->
   <node name="ballbot_pybullet_sim" pkg="ballbot_pybullet_sim" type="sim_table_world.py" respawn="false" output="screen"/>
 
+  
 </launch>
