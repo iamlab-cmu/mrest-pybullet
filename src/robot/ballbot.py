@@ -161,7 +161,12 @@ class Ballbot:
         return self.bodyOrientEuler
 
     def get_base_velocity(self):
-        linear, angular = p.getBaseVelocity(self.robot)
+        """
+            Returns the angular velocity of the body 
+                bodyAngVel = [xAngVel,yAngVel,yawVel]
+        """
+        self.bodyLinVel, self.bodyAngVel = p.getBaseVelocity(self.robot)
+        return self.bodyAngVel
 
     def get_ball_state(self):
         # TODO: make the ball link id a variable

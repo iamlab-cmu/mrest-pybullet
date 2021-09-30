@@ -39,6 +39,7 @@ if USE_ROS:
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
     from sensor_msgs.msg import LaserScan
+    from sensor_msgs.msg import JointState
 
     # Find package work space to retrieve urdf
     rospack = rospkg.RosPack()
@@ -186,6 +187,9 @@ class RobotSimulator(object):
         self.sim_clock_msg = Clock()
         self.sim_wall_time = 0.0
 
+        # Joint State Publisher
+        self.joint_state_pub = rospy.Publisher(
+            "/joint_states", JointState, queue_size=1000)
         self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=1000)
         self.odom_msg = Odom()
         self.arms_pub = rospy.Publisher(
@@ -400,19 +404,44 @@ class RobotSimulator(object):
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
         self.arms_pub.publish(self.arms_msg)
 
-    def publish_sensor_data(self):
 
-        # Body Lidar
-        self.body_laser_msg.header.stamp = rospy.Time.now()
-        self.body_laser_msg.range_min = self.ballbot.lidar.angle_min
-        self.body_laser_msg.range_max = self.ballbot.lidar.angle_max
-        self.body_laser_msg.angle_increment = self.ballbot.lidar.angle_delta
-        self.body_laser_msg.range_max = self.ballbot.lidar.range_max
-        self.body_laser_msg.range_min = self.ballbot.lidar.range_min
+<< << << < dd74717573dc37967a72d7891b42a2e8f0502b7d
 
-        self.body_laser_msg.ranges = self.ballbot.lidar.get_hits()
 
-        self.body_laser_pub.publish(self.body_laser_msg)
+def publish_sensor_data(self):
+
+    # Body Lidar
+    self.body_laser_msg.header.stamp = rospy.Time.now()
+    self.body_laser_msg.range_min = self.ballbot.lidar.angle_min
+    self.body_laser_msg.range_max = self.ballbot.lidar.angle_max
+    self.body_laser_msg.angle_increment = self.ballbot.lidar.angle_delta
+    self.body_laser_msg.range_max = self.ballbot.lidar.range_max
+    self.body_laser_msg.range_min = self.ballbot.lidar.range_min
+
+    self.body_laser_msg.ranges = self.ballbot.lidar.get_hits()
+
+    self.body_laser_pub.publish(self.body_laser_msg)
+
+
+== == == =
+
+
+def publish_joint_state(self):
+    self.joint_state_msg = JointState()
+    self.joint_state_msg.header.stamp = rospy.Time.now()
+    self.joint_state_msg.header.frame_id = "joints"
+    self.joint_state_msg.name = JOINT_NAMES
+
+    # TODO add joints for turret
+    turret_pos = [0.0, 0.0]
+    self.joint_state_msg.position = self.ballbot.bodyOrientEuler + \
+        self.ballbot.arm_pos + turret_pos
+    #self.joint_state_msg.velocity = self.ballbot.bodyAngVel + self.ballbot.arm_vel
+    #self.joint_state_msg.effort = 0
+    self.joint_state_pub.publish(self.joint_state_msg)
+
+
+>>>>>> > Solutions:
 
     def publish_sim_time(self):
         self.sim_wall_time += SIMULATION_TIME_STEP_S
