@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot name="drawer" xmlns:xacro="http://ros.org/wiki/xacro">
+    <!-- Include files that set up definitions of furniute -->
+    <xacro:include filename="$(find ballbot_pybullet_sim)/urdf/msl/furniture.xacro"/>
+
+    <material name="GREEN">
+        <color rgba="0.6 0.8 0.56 1.0"/>
+    </material>
+
+    <link name="drawer$">
+      <inertial>
+        <mass value="10.0" />
+        <inertia  ixx="1.0" ixy="0.0"  ixz="0.0"  iyy="1.0"  iyz="0.0"  izz="1.0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <box size="0.6985 0.574675 0.8509"/>
+        </geometry>
+        <material name="GREEN"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.6985 0.574675 0.8509"/>
+        </geometry>
+      </collision>
+    </link>
+    
+</robot>

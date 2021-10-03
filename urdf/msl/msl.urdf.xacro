@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<robot name="MSL" xmlns:xacro="http://ros.org/wiki/xacro">
+    <!-- Include files that set up definitions of furniute -->
+    <xacro:include filename="$(find ballbot_pybullet_sim)/urdf/msl/furniture.xacro"/>
+
+    <link name="map"/>
+
+    <!-- -->
+    <xacro:cabinet no="1" parent="map">
+        <origin xyz="-0.7239 -0.0254 ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+
+    <xacro:cabinet no="2" parent="map">
+        <origin xyz="-0.7239 0.9017 ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+
+    <xacro:cabinet no="3" parent="map">
+        <origin xyz="$-0.7239 1.524 ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+
+    <xacro:cabinet no="4" parent="map">
+        <origin xyz="-0.7239 2.1082 ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+
+    <!-- -->
+    <xacro:cabinet no="5" parent="map">
+        <origin xyz="${12*9.0*I2M} ${12*15.0*I2M} ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+
+    <xacro:cabinet no="6" parent="map">
+        <origin xyz="${12*11.0*I2M} ${12*15.0*I2M} ${CABINET_Z_M/2}" rpy="0 0 0"/>
+    </xacro:cabinet>
+    
+</robot>
