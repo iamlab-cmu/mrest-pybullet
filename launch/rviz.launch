@@ -1,9 +1,13 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="sim" default="false"/>
+  <arg name="hector" default="true"/>
 
   <arg name="model" default="$(find ballbot_arm_description)/robots/ballbot_plus_rbd.urdf.xacro"/>
   <param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)"/>
+
+  <!-- Mapping and Localization -->
+  <include file="$(find hector_localize)/launch/localization.launch" if="$(arg hector)" />
 
   <node pkg="tf" type="static_transform_publisher" name="map_base_link_tf" args="0 0 0 0 0 0 /map /base_link 100"/> 
   <node pkg="robot_state_publisher" type="state_publisher" name="robot_state_publisher" />
