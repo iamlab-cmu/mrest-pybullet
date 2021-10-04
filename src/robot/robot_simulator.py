@@ -34,12 +34,15 @@ if USE_ROS:
     import rosgraph
     import rospy
     import rospkg
+    import tf2_ros
     from rosgraph_msgs.msg import Clock
     from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
     from sensor_msgs.msg import LaserScan
     from sensor_msgs.msg import JointState
+    from geometry_msgs.msg import TransformStamped
+    from tf2_msgs import *
 
     # Find package work space to retrieve urdf
     rospack = rospkg.RosPack()
@@ -195,6 +198,12 @@ class RobotSimulator(object):
         self.arms_pub = rospy.Publisher(
             "/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
+
+        # TF publisher
+        self.tf_pub = tf2_ros.TransformBroadcaster()
+        #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
+
+
         print("ROS communication initialized")
 
     def setup_environment(self, env):
@@ -432,6 +441,23 @@ class RobotSimulator(object):
         #self.joint_state_msg.effort = 0
         self.joint_state_pub.publish(self.joint_state_msg)
 
+    def publish_tf_data(self):
+        self.tf_data= []
+
+        self.tf_data.append(TransformStamped())
+        self.tf_data[0].header.stamp = rospy.Time.now()
+        self.tf_data[0].header.frame_id = "odom"
+        self.tf_data[0].child_frame_id = "base_link"
+        self.tf_data[0].transform.translation.x = 0.0
+        self.tf_data[0].transform.translation.y = 0.0
+        self.tf_data[0].transform.translation.z = 0.0
+        self.tf_data[0].transform.rotation.x = 0.0
+        self.tf_data[0].transform.rotation.y = 0.0
+        self.tf_data[0].transform.rotation.z = 0.0
+        self.tf_data[0].transform.rotation.w = 1.0
+
+        self.tf_pub.sendTransform(self.tf_data[0])
+
     def publish_sim_time(self):
         self.sim_wall_time += SIMULATION_TIME_STEP_S
         self.sim_clock_msg.clock = rospy.Time.from_sec(self.sim_wall_time)
@@ -442,6 +468,7 @@ class RobotSimulator(object):
         self.publish_state()
         self.publish_sensor_data()
         self.publish_joint_state()
+        self.publish_tf_data()
 
     def calculate_gravity_torques(self):
         # get gravity torque for current arm state from parallel simulation

@@ -31,7 +31,7 @@ class Lidar:
         # Lidar Properties
         self.range_max = 13  # Max Range of Laser [m]
         self.range_min = 0.02  # Min range of Laser [m]
-        self.angle_delta = 0.1  # Angle between rays [rad]
+        self.angle_delta = 0.01  # Angle between rays [rad]
         self.angle_min = angle_min
         self.angle_max = angle_max
 
