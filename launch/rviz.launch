@@ -10,6 +10,7 @@
   <include file="$(find hector_localize)/launch/localization.launch" if="$(arg hector)" />
 
   <!--node pkg="tf" type="static_transform_publisher" name="map_world_tf" args="0 0 0 0 0 0 /map /world 100"/--> 
+  <node pkg="tf" type="static_transform_publisher" name="odom_base_link_tf" args="0 0 0 0 0 0 1 /odom /base_link 100"/> 
   <node pkg="robot_state_publisher" type="state_publisher" name="robot_state_publisher" />
 
    <!-- ROS Tools, RViz, rqt_reconfigure-->

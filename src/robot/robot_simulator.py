@@ -276,7 +276,7 @@ class RobotSimulator(object):
     def step(self):
 
         # Update robot sensors
-        self.ballbot.lidar.update()
+        self.lidarFeedback = self.ballbot.lidar.update()
 
         # Update robot state
         self.ballbot.update_robot_state()
@@ -414,11 +414,10 @@ class RobotSimulator(object):
         self.arms_pub.publish(self.arms_msg)
 
     def publish_sensor_data(self):
-
         # Body Lidar
         self.body_laser_msg.header.stamp = rospy.Time.now()
-        self.body_laser_msg.range_min = self.ballbot.lidar.angle_min
-        self.body_laser_msg.range_max = self.ballbot.lidar.angle_max
+        self.body_laser_msg.angle_min = self.ballbot.lidar.angle_min
+        self.body_laser_msg.angle_max = self.ballbot.lidar.angle_max
         self.body_laser_msg.angle_increment = self.ballbot.lidar.angle_delta
         self.body_laser_msg.range_max = self.ballbot.lidar.range_max
         self.body_laser_msg.range_min = self.ballbot.lidar.range_min
@@ -444,19 +443,36 @@ class RobotSimulator(object):
     def publish_tf_data(self):
         self.tf_data= []
 
+        # TF: odom -> base_link
         self.tf_data.append(TransformStamped())
         self.tf_data[0].header.stamp = rospy.Time.now()
         self.tf_data[0].header.frame_id = "odom"
         self.tf_data[0].child_frame_id = "base_link"
-        self.tf_data[0].transform.translation.x = 0.0
-        self.tf_data[0].transform.translation.y = 0.0
+        self.tf_data[0].transform.translation.x = self.ballbot.ballPosInBodyOrient[0]
+        self.tf_data[0].transform.translation.y = self.ballbot.ballPosInBodyOrient[1]
         self.tf_data[0].transform.translation.z = 0.0
         self.tf_data[0].transform.rotation.x = 0.0
         self.tf_data[0].transform.rotation.y = 0.0
         self.tf_data[0].transform.rotation.z = 0.0
         self.tf_data[0].transform.rotation.w = 1.0
 
-        self.tf_pub.sendTransform(self.tf_data[0])
+        # TF base_link->base_footprint
+        self.tf_data.append(TransformStamped())
+        self.tf_data[1].header.stamp = rospy.Time.now()
+        self.tf_data[1].header.frame_id = "base_link"
+        self.tf_data[1].child_frame_id = "base_footprint"
+        self.tf_data[1].transform.translation.x = 0.0
+        self.tf_data[1].transform.translation.y = 0.0
+        self.tf_data[1].transform.translation.z = 0.0
+        self.tf_data[1].transform.rotation.x = 0.0
+        self.tf_data[1].transform.rotation.y = 0.0
+        # TODO: figure out why this is the case in ball code.
+        self.tf_data[1].transform.rotation.z = np.sin(self.ballbot.bodyOrientEuler[2]/2)
+        self.tf_data[1].transform.rotation.w = np.cos(self.ballbot.bodyOrientEuler[2]/2)
+
+        # Broadcast TF
+        for i in range(len(self.tf_data)):
+            self.tf_pub.sendTransform(self.tf_data[i])
 
     def publish_sim_time(self):
         self.sim_wall_time += SIMULATION_TIME_STEP_S

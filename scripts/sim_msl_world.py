@@ -26,7 +26,7 @@ VIDEO_FILE_NAME = "ballbot_grasp"
 if __name__ == "__main__":
     # set pybullet environment
     robot_simulator = RobotSimulator(
-        startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, 0])
+        startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, np.deg2rad(90)])
 
     """ Main Loop """
     robot_simulator.update_robot_state(BallState.OLC)

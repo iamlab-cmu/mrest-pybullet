@@ -142,3 +142,6 @@ class MSLEnv(object):
         for i in range(self.no_drawers):
             drawer = p.loadURDF(URDF_FOLDER_NAME + "msl/drawer.urdf", pos_m[i], startOrientation)
             self.drawers.append(drawer)
+
+        # Add wall
+        #wall = p.loadURDF(URDF_FOLDER_NAME + "corner.urdf", [0,1.5,1.25], [0,0,0,1])
