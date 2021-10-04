@@ -46,7 +46,7 @@ class Ballbot:
             p.changeDynamics(self.robot, j, linearDamping=0.5,
                              angularDamping=0.5)
             info = p.getJointInfo(self.robot, j)
-            jointName = info[1]
+            jointName = info[1].decode('UTF-8')
             jointType = info[2]
 
             # Store link Ids
@@ -54,7 +54,7 @@ class Ballbot:
             self.linkIds[linkName] = j
 
             # Store arm joint ids
-            if (jointType == p.JOINT_PRISMATIC or jointType == p.JOINT_REVOLUTE):
+            if jointName in ARMS_JOINT_NAMES:
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
 
