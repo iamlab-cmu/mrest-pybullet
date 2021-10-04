@@ -135,7 +135,7 @@ class RobotSimulator(object):
         self.armPosCmdId = []
         for i in range(len(self.ballbot.arm_joint_names)):
             self.armPosCmdId.append(p.addUserDebugParameter(
-                self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
+                self.ballbot.arm_joint_names[i], -4, 4, 0))
 
         # OLC CMDS
         self.olc_cmd = []
@@ -202,7 +202,6 @@ class RobotSimulator(object):
         # TF publisher
         self.tf_pub = tf2_ros.TransformBroadcaster()
         #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
-
 
         print("ROS communication initialized")
 
@@ -441,7 +440,7 @@ class RobotSimulator(object):
         self.joint_state_pub.publish(self.joint_state_msg)
 
     def publish_tf_data(self):
-        self.tf_data= []
+        self.tf_data = []
 
         # TF: odom -> base_link
         self.tf_data.append(TransformStamped())
@@ -467,8 +466,10 @@ class RobotSimulator(object):
         self.tf_data[1].transform.rotation.x = 0.0
         self.tf_data[1].transform.rotation.y = 0.0
         # TODO: figure out why this is the case in ball code.
-        self.tf_data[1].transform.rotation.z = np.sin(self.ballbot.bodyOrientEuler[2]/2)
-        self.tf_data[1].transform.rotation.w = np.cos(self.ballbot.bodyOrientEuler[2]/2)
+        self.tf_data[1].transform.rotation.z = np.sin(
+            self.ballbot.bodyOrientEuler[2]/2)
+        self.tf_data[1].transform.rotation.w = np.cos(
+            self.ballbot.bodyOrientEuler[2]/2)
 
         # Broadcast TF
         for i in range(len(self.tf_data)):
@@ -492,7 +493,7 @@ class RobotSimulator(object):
             # self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
             #   p.POSITION_CONTROL,self.arm_joint_command[i], force = 5 * 240.)
             self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
-                                                            p.POSITION_CONTROL, self.ballbot.arm_pos[i], force=5 * 240.)
+                                                           p.POSITION_CONTROL, self.ballbot.arm_pos[i], force=5 * 240.)
         for i in range(10):
             self.physicsClientStatic.stepSimulation()
         self.gravity_torques = [self.physicsClientStatic.getJointState(
