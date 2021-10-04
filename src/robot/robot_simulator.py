@@ -97,7 +97,7 @@ class RobotSimulator(object):
 
         self.setup_gui()
         if USE_ROS:
-            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+            #p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 
             p.resetDebugVisualizerCamera(
                 cameraDistance=4.0, cameraYaw=110, cameraPitch=-30, cameraTargetPosition=[0.24, -0.02, -0.09])
@@ -275,11 +275,13 @@ class RobotSimulator(object):
     def step(self):
 
         # Update robot sensors
-        self.lidarFeedback = self.ballbot.lidar.update()
+        if ENABLE_LASER:
+            self.lidarFeedback = self.ballbot.lidar.update()
 
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()
+        print("body Angles: ", body_orient_euler)
         body_orient_euler_vel = self.ballbot.get_base_velocity()
         self.ballbot.get_ball_state()
         # self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
@@ -453,7 +455,7 @@ class RobotSimulator(object):
         self.tf_data[0].transform.rotation.x = 0.0
         self.tf_data[0].transform.rotation.y = 0.0
         self.tf_data[0].transform.rotation.z = 0.0
-        self.tf_data[0].transform.rotation.w = 1.0
+        self.tf_data[0].transform.rotation.w = 0.0
 
         # TF base_link->base_footprint
         self.tf_data.append(TransformStamped())

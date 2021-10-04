@@ -1,9 +1,9 @@
 """ Constat value definitions """
 
 """ Ballbot Model Parameters """
+
+
 from typing import Tuple
-
-
 URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
 
 """ Ballbot Control Parameters """
@@ -31,12 +31,14 @@ RARM_JOINT_NAMES = ('JRA1', 'JRA2', 'JRA3', 'JRA4', 'JRA5', 'JRA6', 'JRA7')
 ARMS_JOINT_NAMES = LARM_JOINT_NAMES + RARM_JOINT_NAMES
 
 # Turret joint names
-TURRET_JOINT_NAMES = ('turret_pan','turret_tilt')
+TURRET_JOINT_NAMES = ('turret_pan', 'turret_tilt')
 
 # Body joint names
-BODY_JOINT_NAMES = ('xAngle','yAngle','yaw')
+BODY_JOINT_NAMES = ('xAngle', 'yAngle', 'yaw')
 
-JOINT_NAMES = BODY_JOINT_NAMES + RARM_JOINT_NAMES + LARM_JOINT_NAMES + TURRET_JOINT_NAMES
+JOINT_NAMES = BODY_JOINT_NAMES + RARM_JOINT_NAMES + \
+    LARM_JOINT_NAMES + TURRET_JOINT_NAMES
 
 """ Ballbot Sensor Parameters """
 BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
+ENABLE_LASER = False

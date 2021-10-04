@@ -3,7 +3,7 @@ import pybullet as p
 import numpy as np
 
 from robot.definitions import *
-from utils import drawInertiaBox, computeCOMposVel
+from utils import *
 from transformation import *
 from sensors.lidar import Lidar
 
@@ -29,7 +29,11 @@ class Ballbot:
         self.yawBody = 0.0
 
     def reset(self, startPos, startOrientationEuler):
-        startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
+        # Convert from Ballbot Body Orient notation to Pybullet notation
+        startOrientationEulerStandardFrame = convertEulerBBToStandardFrame(
+            startOrientationEuler)
+        startOrientation = p.getQuaternionFromEuler(
+            startOrientationEulerStandardFrame)
         self.robot = p.loadURDF(self._urdf_path, startPos,
                                 startOrientation, useFixedBase=False)
         self.nJoints = p.getNumJoints(self.robot)
@@ -156,7 +160,8 @@ class Ballbot:
         imu_euler = p.getEulerFromQuaternion(imu_orientation)
 
         # TODO: ballbot has a weird convention to define xBodyAngle and yBodyAngle need to make them the same.
-        self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
+        #self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
+        self.bodyOrientEuler = [-imu_euler[1], imu_euler[0], imu_euler[2]]
         self.bodyPositionInWorldFrame = imu_position
         return self.bodyOrientEuler
 

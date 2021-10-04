@@ -26,14 +26,14 @@ VIDEO_FILE_NAME = "ballbot_grasp"
 if __name__ == "__main__":
     # set pybullet environment
     robot_simulator = RobotSimulator(
-        startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, np.deg2rad(90)])
+        startPos=[0, 0, 0.12], startOrientationEuler=[0, np.deg2rad(0), np.deg2rad(0)])
 
     """ Main Loop """
     robot_simulator.update_robot_state(BallState.OLC)
     robot_simulator.ballbot.set_arm_torque_mode()
 
     env = MSLEnv(startPos=[0.0, 0., 0.], startOrientationEuler=[
-                   0., 0., 0.])
+        0., 0., 0.])
     robot_simulator.setup_environment(env)
 
     if LOG_VIDEO:
@@ -49,7 +49,6 @@ if __name__ == "__main__":
 
         if USE_ROS:
             robot_simulator.publish_ros_data()
-
 
         time.sleep(SIMULATION_TIME_STEP_S)
 
