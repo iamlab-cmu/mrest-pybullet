@@ -136,4 +136,18 @@ roslaunch ballbot_pybullet_sim sim_empty_world.launch
 ## References
  - https://medium.com/@inderpreetsinghchhabra/using-python3-with-ros-kinetic-2488354efece
  - https://medium.com/@beta_b0t/how-to-setup-ros-with-python-3-44a69ca36674
- - https://answers.ros.org/question/237613/how-to-define-ros-kinetic-to-use-python3-instead-of-python27/
+ - https://answers.ros.org/question/237613/how-to-define-ros-kinetic-to-use-python3-instead-of-python27
+
+ ## Installing Python 3.7
+
+```
+sudo apt update
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.7 python3.7-dev python3.7-venv
+```
+
+## Install pip for Python 3.7
+$curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python3.7 get-pip.py
