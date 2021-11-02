@@ -29,9 +29,9 @@ class Lidar:
         self.parentLinkId = parentLinkId
 
         # Lidar Properties
-        self.range_max = 13  # Max Range of Laser [m]
+        self.range_max = 60  # Max Range of Laser [m]
         self.range_min = 0.02  # Min range of Laser [m]
-        self.angle_delta = 0.1  # Angle between rays [rad]
+        self.angle_delta = 0.01  # Angle between rays [rad]
         self.angle_min = angle_min
         self.angle_max = angle_max
 
@@ -42,6 +42,7 @@ class Lidar:
             self.angle_min, self.angle_max, self.angle_delta)
         self.rayIds = []
         self.hitRanges = []  # range data of to hit[m]
+        self.numRays = len(self.rayCastAngles)
 
         # Color of rays for visualization
         self.rayHitColor = [1, 0, 0]    # Red
@@ -97,17 +98,18 @@ class Lidar:
             hitObjectUid = results[i][0]
 
             if (hitObjectUid < 0 and self.visualizeMiss):
-                hitPosition = [0, 0, 0]
-                self.hitRanges.append(hitPosition[2])
+                self.hitRanges.append(0)
                 p.addUserDebugLine(
                     self.rayFrom[i], self.rayTo[i], self.rayMissColor, replaceItemUniqueId=self.rayIds[i])
             elif(self.visualizeHit):
                 hitPosition = results[i][3]
-                self.hitRanges.append(hitPosition[2])
+                dist = np.linalg.norm(np.array(hitPosition) - np.array(self.rayFrom[i]))
+                self.hitRanges.append(dist)
                 p.addUserDebugLine(
                     self.rayFrom[i], hitPosition, self.rayHitColor, replaceItemUniqueId=self.rayIds[i])
 
         return self.hitRanges
+
 
     def get_hits(self):
         """

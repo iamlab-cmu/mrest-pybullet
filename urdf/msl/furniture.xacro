@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- green cabinet -->
+  <xacro:property name="I2M" value="0.0254"/>  <!-- inch to meter-->
+  <xacro:property name="CABINET_X_IN" value="27.5"/>
+  <xacro:property name="CABINET_Y_IN" value="${22.0 + (5.0/8.0)}"/>
+  <xacro:property name="CABINET_Z_IN" value="33.5"/>
+  <xacro:property name="CABINET_X_M" value="${CABINET_X_IN*I2M}"/>
+  <xacro:property name="CABINET_Y_M" value="${CABINET_Y_IN*I2M}"/>
+  <xacro:property name="CABINET_Z_M" value="${CABINET_Z_IN*I2M}"/>
+
+  <material name="GREEN">
+    <color rgba="0.0 1.0 0.0 1.0"/>
+  </material>
+
+  <xacro:macro name="cabinet" params="no parent *origin">
+    <joint name="Jcabinet${no}" type="fixed">
+         <xacro:insert_block name="origin"/>
+         <axis xyz="0 0 1"/>
+         <parent link="${parent}"/>
+         <child link ="cabinet${no}"/>
+    </joint>
+
+    <link name="cabinet${no}">
+      <inertial>
+        <mass value="10.0" />
+        <inertia  ixx="1.0" ixy="0.0"  ixz="0.0"  iyy="1.0"  iyz="0.0"  izz="1.0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <box size="${CABINET_X_M} ${CABINET_Y_M} ${CABINET_Z_M}"/>
+        </geometry>
+        <material name="GREEN"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${CABINET_X_M} ${CABINET_Y_M} ${CABINET_Z_M}"/>
+        </geometry>
+      </collision>
+    </link>
+  </xacro:macro>
+
+  <!-- Green lab drawer -->
+  <xacro:macro name="drawer" params="no *origin">
+    <link name="drawer${no}">
+      <inertial>
+        <mass value="10.0" />
+        <inertia  ixx="1.0" ixy="0.0"  ixz="0.0"  iyy="1.0"  iyz="0.0"  izz="1.0" />
+      </inertial>
+      <visual>
+        <geometry>
+          <box size="${CABINET_X_M} ${CABINET_Y_M} ${CABINET_Z_M}"/>
+        </geometry>
+        <material name="GREEN"/>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="${CABINET_X_M} ${CABINET_Y_M} ${CABINET_Z_M}"/>
+        </geometry>
+      </collision>
+    </link>
+  </xacro:macro>
+</robot> 

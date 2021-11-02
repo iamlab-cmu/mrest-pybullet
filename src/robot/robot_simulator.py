@@ -34,11 +34,15 @@ if USE_ROS:
     import rosgraph
     import rospy
     import rospkg
+    import tf2_ros
     from rosgraph_msgs.msg import Clock
     from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
     from sensor_msgs.msg import LaserScan
+    from sensor_msgs.msg import JointState
+    from geometry_msgs.msg import TransformStamped
+    from tf2_msgs import *
 
     # Find package work space to retrieve urdf
     rospack = rospkg.RosPack()
@@ -93,7 +97,7 @@ class RobotSimulator(object):
 
         self.setup_gui()
         if USE_ROS:
-            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+            #p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 
             p.resetDebugVisualizerCamera(
                 cameraDistance=4.0, cameraYaw=110, cameraPitch=-30, cameraTargetPosition=[0.24, -0.02, -0.09])
@@ -131,7 +135,7 @@ class RobotSimulator(object):
         self.armPosCmdId = []
         for i in range(len(self.ballbot.arm_joint_names)):
             self.armPosCmdId.append(p.addUserDebugParameter(
-                self.ballbot.arm_joint_names[i].decode("utf-8"), -4, 4, 0))
+                self.ballbot.arm_joint_names[i], -4, 4, 0))
 
         # OLC CMDS
         self.olc_cmd = []
@@ -186,11 +190,19 @@ class RobotSimulator(object):
         self.sim_clock_msg = Clock()
         self.sim_wall_time = 0.0
 
+        # Joint State Publisher
+        self.joint_state_pub = rospy.Publisher(
+            "/joint_states", JointState, queue_size=1000)
         self.odom_pub = rospy.Publisher("/rt/odom", Odom, queue_size=1000)
         self.odom_msg = Odom()
         self.arms_pub = rospy.Publisher(
             "/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
+
+        # TF publisher
+        self.tf_pub = tf2_ros.TransformBroadcaster()
+        #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
+
         print("ROS communication initialized")
 
     def setup_environment(self, env):
@@ -263,11 +275,13 @@ class RobotSimulator(object):
     def step(self):
 
         # Update robot sensors
-        self.ballbot.lidar.update()
+        if ENABLE_LASER:
+            self.lidarFeedback = self.ballbot.lidar.update()
 
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()
+        #print("body Angles: ", body_orient_euler)
         body_orient_euler_vel = self.ballbot.get_base_velocity()
         self.ballbot.get_ball_state()
         # self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
@@ -401,11 +415,10 @@ class RobotSimulator(object):
         self.arms_pub.publish(self.arms_msg)
 
     def publish_sensor_data(self):
-
         # Body Lidar
         self.body_laser_msg.header.stamp = rospy.Time.now()
-        self.body_laser_msg.range_min = self.ballbot.lidar.angle_min
-        self.body_laser_msg.range_max = self.ballbot.lidar.angle_max
+        self.body_laser_msg.angle_min = self.ballbot.lidar.angle_min
+        self.body_laser_msg.angle_max = self.ballbot.lidar.angle_max
         self.body_laser_msg.angle_increment = self.ballbot.lidar.angle_delta
         self.body_laser_msg.range_max = self.ballbot.lidar.range_max
         self.body_laser_msg.range_min = self.ballbot.lidar.range_min
@@ -414,10 +427,67 @@ class RobotSimulator(object):
 
         self.body_laser_pub.publish(self.body_laser_msg)
 
+    def publish_joint_state(self):
+        self.joint_state_msg = JointState()
+        self.joint_state_msg.header.stamp = rospy.Time.now()
+        self.joint_state_msg.header.frame_id = "joints"
+        self.joint_state_msg.name = JOINT_NAMES
+
+        # TODO add joints for turret
+        turret_pos = [0.0, 0.0]
+        self.joint_state_msg.position = self.ballbot.bodyOrientEuler + \
+            self.ballbot.arm_pos + turret_pos
+        #self.joint_state_msg.velocity = self.ballbot.bodyAngVel + self.ballbot.arm_vel
+        #self.joint_state_msg.effort = 0
+        self.joint_state_pub.publish(self.joint_state_msg)
+
+    def publish_tf_data(self):
+        self.tf_data = []
+
+        # TF: odom -> base_link
+        self.tf_data.append(TransformStamped())
+        self.tf_data[0].header.stamp = rospy.Time.now()
+        self.tf_data[0].header.frame_id = "odom"
+        self.tf_data[0].child_frame_id = "base_link"
+        self.tf_data[0].transform.translation.x = self.ballbot.ballPosInBodyOrient[0]
+        self.tf_data[0].transform.translation.y = self.ballbot.ballPosInBodyOrient[1]
+        self.tf_data[0].transform.translation.z = 0.0
+        self.tf_data[0].transform.rotation.x = 0.0
+        self.tf_data[0].transform.rotation.y = 0.0
+        self.tf_data[0].transform.rotation.z = 0.0
+        self.tf_data[0].transform.rotation.w = 0.0
+
+        # TF base_link->base_footprint
+        self.tf_data.append(TransformStamped())
+        self.tf_data[1].header.stamp = rospy.Time.now()
+        self.tf_data[1].header.frame_id = "base_link"
+        self.tf_data[1].child_frame_id = "base_footprint"
+        self.tf_data[1].transform.translation.x = 0.0
+        self.tf_data[1].transform.translation.y = 0.0
+        self.tf_data[1].transform.translation.z = 0.0
+        self.tf_data[1].transform.rotation.x = 0.0
+        self.tf_data[1].transform.rotation.y = 0.0
+        # TODO: figure out why this is the case in ball code.
+        self.tf_data[1].transform.rotation.z = np.sin(
+            self.ballbot.bodyOrientEuler[2]/2)
+        self.tf_data[1].transform.rotation.w = np.cos(
+            self.ballbot.bodyOrientEuler[2]/2)
+
+        # Broadcast TF
+        for i in range(len(self.tf_data)):
+            self.tf_pub.sendTransform(self.tf_data[i])
+
     def publish_sim_time(self):
         self.sim_wall_time += SIMULATION_TIME_STEP_S
         self.sim_clock_msg.clock = rospy.Time.from_sec(self.sim_wall_time)
         self.clock_pub.publish(self.sim_clock_msg)
+
+    def publish_ros_data(self):
+        self.publish_sim_time()
+        self.publish_state()
+        self.publish_sensor_data()
+        self.publish_joint_state()
+        self.publish_tf_data()
 
     def calculate_gravity_torques(self):
         # get gravity torque for current arm state from parallel simulation

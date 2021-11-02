@@ -3,7 +3,7 @@ import pybullet as p
 import numpy as np
 
 from robot.definitions import *
-from utils import drawInertiaBox, computeCOMposVel
+from utils import *
 from transformation import *
 from sensors.lidar import Lidar
 
@@ -29,7 +29,11 @@ class Ballbot:
         self.yawBody = 0.0
 
     def reset(self, startPos, startOrientationEuler):
-        startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
+        # Convert from Ballbot Body Orient notation to Pybullet notation
+        startOrientationEulerStandardFrame = convertEulerBBToStandardFrame(
+            startOrientationEuler)
+        startOrientation = p.getQuaternionFromEuler(
+            startOrientationEulerStandardFrame)
         self.robot = p.loadURDF(self._urdf_path, startPos,
                                 startOrientation, useFixedBase=False)
         self.nJoints = p.getNumJoints(self.robot)
@@ -46,7 +50,7 @@ class Ballbot:
             p.changeDynamics(self.robot, j, linearDamping=0.5,
                              angularDamping=0.5)
             info = p.getJointInfo(self.robot, j)
-            jointName = info[1]
+            jointName = info[1].decode('UTF-8')
             jointType = info[2]
 
             # Store link Ids
@@ -54,7 +58,7 @@ class Ballbot:
             self.linkIds[linkName] = j
 
             # Store arm joint ids
-            if (jointType == p.JOINT_PRISMATIC or jointType == p.JOINT_REVOLUTE):
+            if jointName in ARMS_JOINT_NAMES:
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
 
@@ -156,12 +160,18 @@ class Ballbot:
         imu_euler = p.getEulerFromQuaternion(imu_orientation)
 
         # TODO: ballbot has a weird convention to define xBodyAngle and yBodyAngle need to make them the same.
-        self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
+        #self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
+        self.bodyOrientEuler = [-imu_euler[1], imu_euler[0], imu_euler[2]]
         self.bodyPositionInWorldFrame = imu_position
         return self.bodyOrientEuler
 
     def get_base_velocity(self):
-        linear, angular = p.getBaseVelocity(self.robot)
+        """
+            Returns the angular velocity of the body 
+                bodyAngVel = [xAngVel,yAngVel,yawVel]
+        """
+        self.bodyLinVel, self.bodyAngVel = p.getBaseVelocity(self.robot)
+        return self.bodyAngVel
 
     def get_ball_state(self):
         # TODO: make the ball link id a variable

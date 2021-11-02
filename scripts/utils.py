@@ -2,6 +2,19 @@ import math
 import numpy as np
 
 
+def convertEulerBBToStandardFrame(orientation):
+    '''
+        Converted a list of euler angles [x,y,z] representing ballbot's 
+        body lean angle and yaw into the standard notation. Note that in ballbot
+        xBodyAngle is the angle around the y-axis and the yBodyAngle is the negative
+        angle around the x-axis
+
+        orientation: [xAng, yAng, zAng]
+    '''
+    ballbotOrientation = [-orientation[1], orientation[0], orientation[2]]
+    return ballbotOrientation
+
+
 def drawInertiaBox(pb, parentUid, parentLinkIndex, color):
     dyn = pb.getDynamicsInfo(parentUid, parentLinkIndex)
     mass = dyn[0]

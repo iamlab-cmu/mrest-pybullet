@@ -47,3 +47,101 @@ class KivaShelf(object):
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.table = p.loadSDF("kiva_shelf/model.sdf",
                                startPos, startOrientation)
+
+class MSLEnv2(object):
+    def __init__(self, startPos=[0., 0., 0.], startOrientationEuler=[0., 0., 0.]):
+
+        startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
+        
+        # Dimensions of green drawer
+        self.I2M = 0.0254 # inche to meters
+        self.DRAWER_X_IN = 27.5
+        self.DRAWER_Y_IN = (22.0 + (5.0/8.0))
+        self.DRAWER_Z_IN = 33.5
+        self.DRAWER_X_M = self.DRAWER_Z_IN*self.I2M 
+        self.DRAWER_Y_M = self.DRAWER_Z_IN*self.I2M 
+        self.DRAWER_Z_M = self.DRAWER_Z_IN*self.I2M 
+
+        # Center position of drawers inf ft and inches w.r.t to /map frame
+        d_ft = np.array([[0.0,  0.0],
+                     [0.0,  3.0],
+                     [0.0,  5.0],
+                     [0.0,  7.0],
+                     [15.0, 7.0],
+                     [15.0, 9.0],
+                     [15.0,11.0],
+                     [15.0,13.0],
+                     [15.0,17.0],
+                     [15.0,19.0],
+                     [15.0,21.0],
+                     [15.0,23.0],
+                     [15.0,26.0]])
+
+        d_in = np.array([[-1.0 - self.DRAWER_X_IN,-1.0],
+                        [-1.0 - self.DRAWER_X_IN,-0.5],
+                        [-1.0 - self.DRAWER_X_IN, 0.0],
+                        [-1.0 - self.DRAWER_X_IN,-1.0],
+                        [8.0,-4.0],
+                        [8.0,-4.5],
+                        [8.0,-3.0],
+                        [8.0,-3.5],
+                        [8.0,-1.0],
+                        [8.0,-2.5],
+                        [8.0,-3.5],
+                        [8.0,-5.0],
+                        [8.0, 4.7]])
+
+        xyz = np.hstack( [np.array([self.I2M*((12*d_ft[:,0]) + d_in[:,0])]).T,
+                      np.array([self.I2M*((12*d_ft[:,1]) + d_in[:,1])]).T,
+                      np.zeros((np.shape(d_ft)[0],1)) ] )
+
+        d_m = np.array([[-0.7239,-0.0254, self.DRAWER_X_M/2],
+                        [-0.7239, 0.9017,self.DRAWER_X_M/2],
+                        [-0.7239, 1.524, self.DRAWER_X_M/2],
+                        [-0.7239,2.1082, self.DRAWER_X_M/2],
+                        [4.7752,2.032,  self.DRAWER_X_M/2],
+                        [4.7752,2.6289, self.DRAWER_X_M/2],
+                        [4.7752,3.2766, self.DRAWER_X_M/2],
+                        [4.7752, 3.8735, self.DRAWER_X_M/2],
+                        [4.7752, 5.1562, self.DRAWER_X_M/2],
+                        [4.7752, 5.7277, self.DRAWER_X_M/2],
+                        [4.7752, 6.3119, self.DRAWER_X_M/2],
+                        [4.7752, 6.8834, self.DRAWER_X_M/2],
+                        [4.7752, 8.04418, self.DRAWER_X_M/2]])
+
+class MSLEnv(object):
+    def __init__(self, startPos=[0., 0., 0.], startOrientationEuler=[0., 0., 0.]):
+
+        startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
+
+        # Dimensions of green drawer
+        self.I2M = 0.0254 # inche to meters
+        self.DRAWER_X_IN = 27.5
+        self.DRAWER_Y_IN = (22.0 + (5.0/8.0))
+        self.DRAWER_Z_IN = 33.5
+        self.DRAWER_X_M = self.DRAWER_Z_IN*self.I2M 
+        self.DRAWER_Y_M = self.DRAWER_Z_IN*self.I2M 
+        self.DRAWER_Z_M = self.DRAWER_Z_IN*self.I2M 
+        pos_m = np.array([[-0.7239,-0.0254, self.DRAWER_X_M/2],
+                        [-0.7239, 0.9017,self.DRAWER_X_M/2],
+                        [-0.7239, 1.524, self.DRAWER_X_M/2],
+                        [-0.7239,2.1082, self.DRAWER_X_M/2],
+                        [4.7752,2.032,  self.DRAWER_X_M/2],
+                        [4.7752,2.6289, self.DRAWER_X_M/2],
+                        [4.7752,3.2766, self.DRAWER_X_M/2],
+                        [4.7752, 3.8735, self.DRAWER_X_M/2],
+                        [4.7752, 5.1562, self.DRAWER_X_M/2],
+                        [4.7752, 5.7277, self.DRAWER_X_M/2],
+                        [4.7752, 6.3119, self.DRAWER_X_M/2],
+                        [4.7752, 6.8834, self.DRAWER_X_M/2],
+                        [4.7752, 8.04418, self.DRAWER_X_M/2]])
+
+        self.no_drawers = np.shape(pos_m)[0]
+        
+        self.drawers = []
+        for i in range(self.no_drawers):
+            drawer = p.loadURDF(URDF_FOLDER_NAME + "msl/drawer.urdf", pos_m[i], startOrientation)
+            self.drawers.append(drawer)
+
+        # Add wall
+        #wall = p.loadURDF(URDF_FOLDER_NAME + "corner.urdf", [0,1.5,1.25], [0,0,0,1])

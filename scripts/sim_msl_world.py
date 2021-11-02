@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 #  Copyright Microdynamic Systems Laboratory 2021
 #
-# @author Cornelia Bauer <cornelib@andrew.cmu.edu>
 # @author Roberto Shu <rshum@cmu.edu>
 #
 # @brief Python script to launch a ballbot simulation in pybullet
@@ -18,7 +17,7 @@ from enum import Enum
 from robot.robot_simulator import *
 from robot.definitions import *
 from environments.corner_env import *
-from environments.environments import TableEnv
+from environments.environments import MSLEnv, MSLEnv2
 
 # Simulation parameters
 LOG_VIDEO = False
@@ -27,11 +26,15 @@ VIDEO_FILE_NAME = "ballbot_grasp"
 if __name__ == "__main__":
     # set pybullet environment
     robot_simulator = RobotSimulator(
-        startPos=[0, 0, 0.12], startOrientationEuler=[0, np.deg2rad(0), 0])
+        startPos=[0, 0, 0.12], startOrientationEuler=[0, np.deg2rad(0), np.deg2rad(0)])
 
     """ Main Loop """
     robot_simulator.update_robot_state(BallState.OLC)
-    robot_simulator.ballbot.set_arm_torque_mode()
+    # robot_simulator.ballbot.set_arm_torque_mode()
+
+    env = MSLEnv(startPos=[0.0, 0., 0.], startOrientationEuler=[
+        0., 0., 0.])
+    robot_simulator.setup_environment(env)
 
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
