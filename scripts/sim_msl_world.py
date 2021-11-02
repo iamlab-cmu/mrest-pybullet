@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     """ Main Loop """
     robot_simulator.update_robot_state(BallState.OLC)
-    robot_simulator.ballbot.set_arm_torque_mode()
+    # robot_simulator.ballbot.set_arm_torque_mode()
 
     env = MSLEnv(startPos=[0.0, 0., 0.], startOrientationEuler=[
         0., 0., 0.])

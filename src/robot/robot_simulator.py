@@ -281,7 +281,7 @@ class RobotSimulator(object):
         # Update robot state
         self.ballbot.update_robot_state()
         body_orient_euler = self.ballbot.get_body_orientation()
-        print("body Angles: ", body_orient_euler)
+        #print("body Angles: ", body_orient_euler)
         body_orient_euler_vel = self.ballbot.get_base_velocity()
         self.ballbot.get_ball_state()
         # self.body_controller.set_data(SIMULATION_TIME_STEP_S,body_orient_euler,ball_velocity)
