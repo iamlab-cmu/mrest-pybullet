@@ -145,3 +145,10 @@ class MSLEnv(object):
 
         # Add wall
         #wall = p.loadURDF(URDF_FOLDER_NAME + "corner.urdf", [0,1.5,1.25], [0,0,0,1])
+
+class CornerEnv(object):
+    def __init__(self, startPos=[0.0, 2.0, 1.25], startOrientationEuler=[0., 0., 0.]):
+        startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self.corner = p.loadURDF(
+            URDF_FOLDER_NAME + "corner.urdf", startPos, startOrientation, useFixedBase=1)
