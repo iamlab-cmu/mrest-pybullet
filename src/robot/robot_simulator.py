@@ -16,8 +16,6 @@ import numpy as np
 from enum import Enum
 
 from robot.definitions import *
-from environments.corner_env import *
-from environments.environments import TableEnv
 from robot.ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController

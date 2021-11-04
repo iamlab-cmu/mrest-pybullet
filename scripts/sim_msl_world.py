@@ -16,7 +16,6 @@ from enum import Enum
 
 from robot.robot_simulator import *
 from robot.definitions import *
-from environments.corner_env import *
 from environments.environments import MSLEnv, MSLEnv2
 
 # Simulation parameters
