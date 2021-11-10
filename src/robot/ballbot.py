@@ -22,6 +22,9 @@ class Ballbot:
 
         # Add Sensors
         self.lidar = Lidar(self.robot, self.linkIds[BODY_LASER_LINK_NAME])
+        
+        # Add force torque sensors 
+        self.enable_force_torque_sensors()
 
         # State of the robot in BODY Frame
         self.xAngleBody = 0.0
@@ -40,6 +43,7 @@ class Ballbot:
 
         self.arm_joint_names = []
         self.jointIds = []
+        self.ftJointIds  = []
 
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
@@ -61,8 +65,12 @@ class Ballbot:
             if jointName in ARMS_JOINT_NAMES:
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
+            
+            if jointName in FT_SENSOR_JOINT_NAMES:
+                self.ftJointIds.append(j)
 
         self.nArmJoints = len(self.arm_joint_names)
+
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
@@ -74,6 +82,9 @@ class Ballbot:
     def set_arms_intial_config(self, joint_positions):
         for i in range(self.nArmJoints):
             p.resetJointState(self.robot, self.jointIds[i], joint_positions[i])
+
+    def enable_force_torque_sensors(self):
+        [p.enableJointForceTorqueSensor(self.robot,self.ftJointIds[i])for i in range(len(self.ftJointIds))]
 
     def print_model_info(self):
         print("num bodies: ", p.getNumBodies())
@@ -217,6 +228,14 @@ class Ballbot:
             0] for i in range(self.nArmJoints)]
         self.arm_vel = [p.getJointState(self.robot, self.jointIds[i])[
             1] for i in range(self.nArmJoints)]
+        # TODO: need to find a way to publish joint torques to the ros topics
+        self.arm_torque = [p.getJointState(self.robot, self.jointIds[i])[
+            3] for i in range(self.nArmJoints)]
+
+    def get_wrist_wrench_measurement(self):
+        wrench_right = p.getJointState(self.robot, self.ftJointIds[0])[2]
+        wrench_left = p.getJointState(self.robot, self.ftJointIds[1])[2]
+        return wrench_right, wrench_left
 
     def update_robot_state(self):
         self.get_body_orientation()

@@ -40,6 +40,7 @@ if USE_ROS:
     from sensor_msgs.msg import LaserScan
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import TransformStamped
+    from geometry_msgs.msg import Wrench
     from tf2_msgs import *
 
     # Find package work space to retrieve urdf
@@ -87,8 +88,8 @@ class RobotSimulator(object):
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
-        # self.ballbot.print_model_info()
-        # self.ballbot.print_joint_info()
+        #self.ballbot.print_model_info()
+        self.ballbot.print_joint_info()
 
         # By default have an empty environment
         self.environemnt = None
@@ -196,6 +197,15 @@ class RobotSimulator(object):
         self.arms_pub = rospy.Publisher(
             "/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
+        self.body_state_pub = rospy.Publisher(
+            "/rt/body_state", Odom, queue_size=10)
+        self.body_state_msg = Odom()
+
+        # Force Torque sensor publish
+        self.wrench_right_pub = rospy.Publisher("/ballbot/state/wrench/right", Wrench, queue_size=1000)
+        self.wrench_right_msg = Wrench()
+        self.wrench_left_pub = rospy.Publisher("/ballbot/state/wrench/left", Wrench, queue_size=1000)
+        self.wrench_left_msg = Wrench()
 
         # TF publisher
         self.tf_pub = tf2_ros.TransformBroadcaster()
@@ -275,6 +285,7 @@ class RobotSimulator(object):
         # Update robot sensors
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
+        self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
         self.ballbot.update_robot_state()
@@ -408,9 +419,39 @@ class RobotSimulator(object):
         self.arms_msg.header.stamp = rospy.Time.now()
         self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:7]
         self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:7]
+        self.arms_msg.right_arm_state.effort = self.ballbot.arm_torque[0:7]
         self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
+        self.arms_msg.left_arm_state.effort = self.ballbot.arm_torque[7:]
         self.arms_pub.publish(self.arms_msg)
+
+        self.body_state_msg.xPos = self.ballbot.ballPosInWorldFrame[0]
+        self.body_state_msg.yPos = self.ballbot.ballPosInWorldFrame[1]
+        # TODO make sure this is the yaw we want here and all these properties are correct
+        self.body_state_msg.yaw = self.ballbot.bodyOrientEuler[2]
+        self.body_state_msg.xVel = self.ballbot.ballLinVelInWorldFrame[0]
+        self.body_state_msg.yVel = self.ballbot.ballLinVelInWorldFrame[1]
+        self.body_state_msg.xAng = self.ballbot.bodyOrientEuler[0]
+        self.body_state_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        self.body_state_msg.xAngVel = self.ballbot.ballRadialVelInBodyOrient[0]
+        self.body_state_msg.yAngVel = self.ballbot.ballRadialVelInBodyOrient[1]
+        self.body_state_pub.publish(self.body_state_msg)
+
+        self.wrench_right_msg.force.x = self.wrench_right[0]
+        self.wrench_right_msg.force.y = self.wrench_right[1]
+        self.wrench_right_msg.force.z = self.wrench_right[2]
+        self.wrench_right_msg.torque.x = self.wrench_right[3]
+        self.wrench_right_msg.torque.y = self.wrench_right[4]
+        self.wrench_right_msg.torque.z = self.wrench_right[5]
+        self.wrench_right_pub.publish(self.wrench_right_msg)
+
+        self.wrench_left_msg.force.x = self.wrench_left[0]
+        self.wrench_left_msg.force.y = self.wrench_left[1]
+        self.wrench_left_msg.force.z = self.wrench_left[2]
+        self.wrench_left_msg.torque.x = self.wrench_left[3]
+        self.wrench_left_msg.torque.y = self.wrench_left[4]
+        self.wrench_left_msg.torque.z = self.wrench_left[5]
+        self.wrench_left_pub.publish(self.wrench_left_msg)
 
     def publish_sensor_data(self):
         # Body Lidar
