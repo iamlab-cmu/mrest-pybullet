@@ -37,6 +37,7 @@ if USE_ROS:
     from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
+    from std_srvs.srv import SetBool
     from sensor_msgs.msg import LaserScan
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import TransformStamped
@@ -164,6 +165,7 @@ class RobotSimulator(object):
             "/rt/state_cmd", State, self.update_state_cmd)
 
         # Arms
+        self.torque_mode_srv = rospy.Service('/ballbotArms/switch_torque_mode', SetBool, self.update_torque_mode)
         self.rarm_joint_sub = rospy.Subscriber(
             "/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
         self.rarm_joint_command = [0, 0, 0, 0, 0, 0, 0]
@@ -211,6 +213,7 @@ class RobotSimulator(object):
         self.tf_pub = tf2_ros.TransformBroadcaster()
         #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
 
+
         print("ROS communication initialized")
 
     def setup_environment(self, env):
@@ -241,6 +244,14 @@ class RobotSimulator(object):
     def update_state_cmd(self, msg):
         # self.state_command['ballState'] = msg.ballState
         self.update_robot_state(BallState(msg.ballState))
+
+    def update_torque_mode(self, req):
+        if req.data==True:
+            self.ballbot.set_arm_torque_mode()
+            print("Ballbot arm mode changed to TORQUE")
+        else:
+            self.ballbot.set_arm_position_mode()
+            print("Ballbot arm mode changed to POSITION")
 
     def update_rarm_cmd(self, msg):
         self.rarm_joint_command = msg.position
