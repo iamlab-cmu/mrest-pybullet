@@ -40,7 +40,7 @@ if USE_ROS:
     from sensor_msgs.msg import LaserScan
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import TransformStamped
-    from geometry_msgs.msg import Wrench
+    from geometry_msgs.msg import WrenchStamped
     from tf2_msgs import *
 
     # Find package work space to retrieve urdf
@@ -202,10 +202,10 @@ class RobotSimulator(object):
         self.body_state_msg = Odom()
 
         # Force Torque sensor publish
-        self.wrench_right_pub = rospy.Publisher("/ballbot/state/wrench/right", Wrench, queue_size=1000)
-        self.wrench_right_msg = Wrench()
-        self.wrench_left_pub = rospy.Publisher("/ballbot/state/wrench/left", Wrench, queue_size=1000)
-        self.wrench_left_msg = Wrench()
+        self.wrench_right_pub = rospy.Publisher("/ballbot/state/wrench/right", WrenchStamped, queue_size=1000)
+        self.wrench_right_msg = WrenchStamped()
+        self.wrench_left_pub = rospy.Publisher("/ballbot/state/wrench/left", WrenchStamped, queue_size=1000)
+        self.wrench_left_msg = WrenchStamped()
 
         # TF publisher
         self.tf_pub = tf2_ros.TransformBroadcaster()
@@ -229,10 +229,10 @@ class RobotSimulator(object):
             print("[ERROR] no video log initialized, call start_video_log()")
 
     def update_olc_cmd(self, msg):
-        self.olc_command_ROS['xAng'] = msg.xAng
-        self.olc_command_ROS['yAng'] = msg.yAng
-        self.olc_command_ROS['xVel'] = msg.xVel
-        self.olc_command_ROS['yVel'] = msg.yVel
+        self.olc_command_ROS['xAng'] = msg.yAng
+        self.olc_command_ROS['yAng'] = msg.xAng
+        self.olc_command_ROS['xVel'] = msg.yVel
+        self.olc_command_ROS['yVel'] = msg.xVel
 
     def update_vel_cmd(self, msg):
         self.olc_command_ROS['xVel'] = msg.velX
@@ -431,26 +431,32 @@ class RobotSimulator(object):
         self.body_state_msg.yaw = self.ballbot.bodyOrientEuler[2]
         self.body_state_msg.xVel = self.ballbot.ballLinVelInWorldFrame[0]
         self.body_state_msg.yVel = self.ballbot.ballLinVelInWorldFrame[1]
-        self.body_state_msg.xAng = self.ballbot.bodyOrientEuler[0]
-        self.body_state_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        #self.body_state_msg.xAng = self.ballbot.bodyOrientEuler[0]
+        #self.body_state_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        self.body_state_msg.xAng = self.ballbot.state.xAng
+        self.body_state_msg.yAng = self.ballbot.state.yAng
         self.body_state_msg.xAngVel = self.ballbot.ballRadialVelInBodyOrient[0]
         self.body_state_msg.yAngVel = self.ballbot.ballRadialVelInBodyOrient[1]
         self.body_state_pub.publish(self.body_state_msg)
 
-        self.wrench_right_msg.force.x = self.wrench_right[0]
-        self.wrench_right_msg.force.y = self.wrench_right[1]
-        self.wrench_right_msg.force.z = self.wrench_right[2]
-        self.wrench_right_msg.torque.x = self.wrench_right[3]
-        self.wrench_right_msg.torque.y = self.wrench_right[4]
-        self.wrench_right_msg.torque.z = self.wrench_right[5]
+        self.wrench_right_msg.header.stamp = rospy.Time.now()
+        self.wrench_right_msg.header.frame_id = FT_SENSOR_JOINT_NAMES[0]
+        self.wrench_right_msg.wrench.force.x = self.wrench_right[0]
+        self.wrench_right_msg.wrench.force.y = self.wrench_right[1]
+        self.wrench_right_msg.wrench.force.z = self.wrench_right[2]
+        self.wrench_right_msg.wrench.torque.x = self.wrench_right[3]
+        self.wrench_right_msg.wrench.torque.y = self.wrench_right[4]
+        self.wrench_right_msg.wrench.torque.z = self.wrench_right[5]
         self.wrench_right_pub.publish(self.wrench_right_msg)
-
-        self.wrench_left_msg.force.x = self.wrench_left[0]
-        self.wrench_left_msg.force.y = self.wrench_left[1]
-        self.wrench_left_msg.force.z = self.wrench_left[2]
-        self.wrench_left_msg.torque.x = self.wrench_left[3]
-        self.wrench_left_msg.torque.y = self.wrench_left[4]
-        self.wrench_left_msg.torque.z = self.wrench_left[5]
+        
+        self.wrench_left_msg.header.stamp = rospy.Time.now()
+        self.wrench_left_msg.header.frame_id = FT_SENSOR_JOINT_NAMES[1]
+        self.wrench_left_msg.wrench.force.x = self.wrench_left[0]
+        self.wrench_left_msg.wrench.force.y = self.wrench_left[1]
+        self.wrench_left_msg.wrench.force.z = self.wrench_left[2]
+        self.wrench_left_msg.wrench.torque.x = self.wrench_left[3]
+        self.wrench_left_msg.wrench.torque.y = self.wrench_left[4]
+        self.wrench_left_msg.wrench.torque.z = self.wrench_left[5]
         self.wrench_left_pub.publish(self.wrench_left_msg)
 
     def publish_sensor_data(self):

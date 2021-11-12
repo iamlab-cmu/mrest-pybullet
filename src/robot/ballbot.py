@@ -3,6 +3,7 @@ import pybullet as p
 import numpy as np
 
 from robot.definitions import *
+from robot.state import State
 from utils import *
 from transformation import *
 from sensors.lidar import Lidar
@@ -15,6 +16,7 @@ class Ballbot:
         self._urdf_path = urdf_path
         self.reset(startPos, startOrientationEuler)
 
+        self.state = State()
         self.update_robot_state()
 
         self._arm_mode = p.POSITION_CONTROL
@@ -174,6 +176,9 @@ class Ballbot:
         #self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
         self.bodyOrientEuler = [-imu_euler[1], imu_euler[0], imu_euler[2]]
         self.bodyPositionInWorldFrame = imu_position
+
+        # Update state variable
+        self.state.update_body_state(imu_euler[1], -imu_euler[0], imu_euler[2])
         return self.bodyOrientEuler
 
     def get_base_velocity(self):
