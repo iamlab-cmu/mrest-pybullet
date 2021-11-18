@@ -3,6 +3,7 @@ import pybullet as p
 import numpy as np
 
 from robot.definitions import *
+from robot.state import State
 from utils import *
 from transformation import *
 from sensors.lidar import Lidar
@@ -15,13 +16,17 @@ class Ballbot:
         self._urdf_path = urdf_path
         self.reset(startPos, startOrientationEuler)
 
-        self.update_robot_state()
-
         self._arm_mode = p.POSITION_CONTROL
         #self._arm_mode = p.TORQUE_CONTROL
 
+        self.state = State()
+        self.update_robot_state()
+
         # Add Sensors
         self.lidar = Lidar(self.robot, self.linkIds[BODY_LASER_LINK_NAME])
+        
+        # Add force torque sensors 
+        self.enable_force_torque_sensors()
 
         # State of the robot in BODY Frame
         self.xAngleBody = 0.0
@@ -40,6 +45,7 @@ class Ballbot:
 
         self.arm_joint_names = []
         self.jointIds = []
+        self.ftJointIds  = []
 
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
@@ -61,8 +67,12 @@ class Ballbot:
             if jointName in ARMS_JOINT_NAMES:
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
+            
+            if jointName in FT_SENSOR_JOINT_NAMES:
+                self.ftJointIds.append(j)
 
         self.nArmJoints = len(self.arm_joint_names)
+
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
@@ -74,6 +84,9 @@ class Ballbot:
     def set_arms_intial_config(self, joint_positions):
         for i in range(self.nArmJoints):
             p.resetJointState(self.robot, self.jointIds[i], joint_positions[i])
+
+    def enable_force_torque_sensors(self):
+        [p.enableJointForceTorqueSensor(self.robot,self.ftJointIds[i])for i in range(len(self.ftJointIds))]
 
     def print_model_info(self):
         print("num bodies: ", p.getNumBodies())
@@ -163,6 +176,9 @@ class Ballbot:
         #self.bodyOrientEuler = [imu_euler[0], imu_euler[1], imu_euler[2]]
         self.bodyOrientEuler = [-imu_euler[1], imu_euler[0], imu_euler[2]]
         self.bodyPositionInWorldFrame = imu_position
+
+        # Update state variable
+        self.state.update_body_state(imu_euler[1], -imu_euler[0], imu_euler[2])
         return self.bodyOrientEuler
 
     def get_base_velocity(self):
@@ -217,6 +233,17 @@ class Ballbot:
             0] for i in range(self.nArmJoints)]
         self.arm_vel = [p.getJointState(self.robot, self.jointIds[i])[
             1] for i in range(self.nArmJoints)]
+        # TODO: need to find a way to publish joint torques to the ros topics
+
+        # if arm in position control, get torque. Otherwise torque is the commanded torque set in drive_arms
+        if self._arm_mode is p.POSITION_CONTROL:
+            self.arm_torque = [p.getJointState(self.robot, self.jointIds[i])[
+                3] for i in range(self.nArmJoints)]
+
+    def get_wrist_wrench_measurement(self):
+        wrench_right = p.getJointState(self.robot, self.ftJointIds[0])[2]
+        wrench_left = p.getJointState(self.robot, self.ftJointIds[1])[2]
+        return wrench_right, wrench_left
 
     def update_robot_state(self):
         self.get_body_orientation()
@@ -230,9 +257,11 @@ class Ballbot:
 
     def set_arm_torque_mode(self):
         self._arm_mode = p.TORQUE_CONTROL
+        print("Arm control mode set to TORQUE_CONTROL")
 
     def set_arm_position_mode(self):
         self._arm_mode = p.POSITION_CONTROL
+        print("Arm control mode set to POSITION_CONTROL")
 
     def drive_imbd(self, torque_x, torque_y):
         """
@@ -281,3 +310,5 @@ class Ballbot:
 
             p.setJointMotorControl2(
                 self.robot, self.jointIds[i], p.TORQUE_CONTROL, force=torque_cmd[i])
+        if self._arm_mode is p.TORQUE_CONTROL:
+            self.arm_torque = torque_cmd

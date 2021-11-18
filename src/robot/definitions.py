@@ -42,3 +42,5 @@ JOINT_NAMES = BODY_JOINT_NAMES + RARM_JOINT_NAMES + \
 """ Ballbot Sensor Parameters """
 BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
 ENABLE_LASER = False
+
+FT_SENSOR_JOINT_NAMES = ('RArm7-toolR','LArm7-toolL')

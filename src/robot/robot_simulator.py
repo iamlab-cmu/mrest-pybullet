@@ -16,8 +16,6 @@ import numpy as np
 from enum import Enum
 
 from robot.definitions import *
-from environments.corner_env import *
-from environments.environments import TableEnv
 from robot.ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
@@ -39,9 +37,11 @@ if USE_ROS:
     from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
+    from std_srvs.srv import SetBool
     from sensor_msgs.msg import LaserScan
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import TransformStamped
+    from geometry_msgs.msg import WrenchStamped
     from tf2_msgs import *
 
     # Find package work space to retrieve urdf
@@ -89,8 +89,8 @@ class RobotSimulator(object):
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
-        # self.ballbot.print_model_info()
-        # self.ballbot.print_joint_info()
+        #self.ballbot.print_model_info()
+        self.ballbot.print_joint_info()
 
         # By default have an empty environment
         self.environemnt = None
@@ -165,6 +165,7 @@ class RobotSimulator(object):
             "/rt/state_cmd", State, self.update_state_cmd)
 
         # Arms
+        self.torque_mode_srv = rospy.Service('/ballbotArms/switch_torque_mode', SetBool, self.update_torque_mode)
         self.rarm_joint_sub = rospy.Subscriber(
             "/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
         self.rarm_joint_command = [0, 0, 0, 0, 0, 0, 0]
@@ -198,10 +199,20 @@ class RobotSimulator(object):
         self.arms_pub = rospy.Publisher(
             "/ballbotArms/hardware_interface/joint_states", ArmsJointState, queue_size=1000)
         self.arms_msg = ArmsJointState()
+        self.body_state_pub = rospy.Publisher(
+            "/rt/body_state", Odom, queue_size=10)
+        self.body_state_msg = Odom()
+
+        # Force Torque sensor publish
+        self.wrench_right_pub = rospy.Publisher("/ballbot/state/wrench/right", WrenchStamped, queue_size=1000)
+        self.wrench_right_msg = WrenchStamped()
+        self.wrench_left_pub = rospy.Publisher("/ballbot/state/wrench/left", WrenchStamped, queue_size=1000)
+        self.wrench_left_msg = WrenchStamped()
 
         # TF publisher
         self.tf_pub = tf2_ros.TransformBroadcaster()
         #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
+
 
         print("ROS communication initialized")
 
@@ -221,10 +232,10 @@ class RobotSimulator(object):
             print("[ERROR] no video log initialized, call start_video_log()")
 
     def update_olc_cmd(self, msg):
-        self.olc_command_ROS['xAng'] = msg.xAng
-        self.olc_command_ROS['yAng'] = msg.yAng
-        self.olc_command_ROS['xVel'] = msg.xVel
-        self.olc_command_ROS['yVel'] = msg.yVel
+        self.olc_command_ROS['xAng'] = msg.yAng
+        self.olc_command_ROS['yAng'] = msg.xAng
+        self.olc_command_ROS['xVel'] = msg.yVel
+        self.olc_command_ROS['yVel'] = msg.xVel
 
     def update_vel_cmd(self, msg):
         self.olc_command_ROS['xVel'] = msg.velX
@@ -233,6 +244,14 @@ class RobotSimulator(object):
     def update_state_cmd(self, msg):
         # self.state_command['ballState'] = msg.ballState
         self.update_robot_state(BallState(msg.ballState))
+
+    def update_torque_mode(self, req):
+        if req.data==True:
+            self.ballbot.set_arm_torque_mode()
+            print("Ballbot arm mode changed to TORQUE")
+        else:
+            self.ballbot.set_arm_position_mode()
+            print("Ballbot arm mode changed to POSITION")
 
     def update_rarm_cmd(self, msg):
         self.rarm_joint_command = msg.position
@@ -277,6 +296,7 @@ class RobotSimulator(object):
         # Update robot sensors
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
+        self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
         self.ballbot.update_robot_state()
@@ -369,6 +389,10 @@ class RobotSimulator(object):
             (np.array(rarm_torques), np.array(larm_torques))))
         self.ballbot.drive_imbd(torque_xx, torque_yy)
         # self.ballbot.drive_imbd(current_xx,current_yy)
+        contacts = p.getContactPoints(self.ballbot.robot)
+        p.removeAllUserDebugItems()
+        for c in contacts:
+            p.addUserDebugLine(c[6],c[6] + np.array(c[7]), [1,0,0])
 
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])
@@ -410,9 +434,45 @@ class RobotSimulator(object):
         self.arms_msg.header.stamp = rospy.Time.now()
         self.arms_msg.right_arm_state.position = self.ballbot.arm_pos[0:7]
         self.arms_msg.right_arm_state.velocity = self.ballbot.arm_vel[0:7]
+        self.arms_msg.right_arm_state.effort = self.ballbot.arm_torque[0:7]
         self.arms_msg.left_arm_state.position = self.ballbot.arm_pos[7:]
         self.arms_msg.left_arm_state.velocity = self.ballbot.arm_vel[7:]
+        self.arms_msg.left_arm_state.effort = self.ballbot.arm_torque[7:]
         self.arms_pub.publish(self.arms_msg)
+
+        self.body_state_msg.xPos = self.ballbot.ballPosInWorldFrame[0]
+        self.body_state_msg.yPos = self.ballbot.ballPosInWorldFrame[1]
+        # TODO make sure this is the yaw we want here and all these properties are correct
+        self.body_state_msg.yaw = self.ballbot.bodyOrientEuler[2]
+        self.body_state_msg.xVel = self.ballbot.ballLinVelInWorldFrame[0]
+        self.body_state_msg.yVel = self.ballbot.ballLinVelInWorldFrame[1]
+        #self.body_state_msg.xAng = self.ballbot.bodyOrientEuler[0]
+        #self.body_state_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        self.body_state_msg.xAng = self.ballbot.state.xAng
+        self.body_state_msg.yAng = self.ballbot.state.yAng
+        self.body_state_msg.xAngVel = self.ballbot.ballRadialVelInBodyOrient[0]
+        self.body_state_msg.yAngVel = self.ballbot.ballRadialVelInBodyOrient[1]
+        self.body_state_pub.publish(self.body_state_msg)
+
+        self.wrench_right_msg.header.stamp = rospy.Time.now()
+        self.wrench_right_msg.header.frame_id = FT_SENSOR_JOINT_NAMES[0]
+        self.wrench_right_msg.wrench.force.x = self.wrench_right[0]
+        self.wrench_right_msg.wrench.force.y = self.wrench_right[1]
+        self.wrench_right_msg.wrench.force.z = self.wrench_right[2]
+        self.wrench_right_msg.wrench.torque.x = self.wrench_right[3]
+        self.wrench_right_msg.wrench.torque.y = self.wrench_right[4]
+        self.wrench_right_msg.wrench.torque.z = self.wrench_right[5]
+        self.wrench_right_pub.publish(self.wrench_right_msg)
+        
+        self.wrench_left_msg.header.stamp = rospy.Time.now()
+        self.wrench_left_msg.header.frame_id = FT_SENSOR_JOINT_NAMES[1]
+        self.wrench_left_msg.wrench.force.x = self.wrench_left[0]
+        self.wrench_left_msg.wrench.force.y = self.wrench_left[1]
+        self.wrench_left_msg.wrench.force.z = self.wrench_left[2]
+        self.wrench_left_msg.wrench.torque.x = self.wrench_left[3]
+        self.wrench_left_msg.wrench.torque.y = self.wrench_left[4]
+        self.wrench_left_msg.wrench.torque.z = self.wrench_left[5]
+        self.wrench_left_pub.publish(self.wrench_left_msg)
 
     def publish_sensor_data(self):
         # Body Lidar

@@ -1,7 +1,7 @@
 
 <robot name="corner">
   <material name="Blue">
-    <color rgba="0 0.5 1 1.0"/>
+    <color rgba="0 0.5 1 0.5"/>
   </material>
 
   <!-- two connected boxes -->

@@ -151,3 +151,11 @@ sudo apt install python3.7 python3.7-dev python3.7-venv
 ## Install pip for Python 3.7
 $curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 python3.7 get-pip.py
+
+## PyBullet Keyboard Shortcuts
+Some useful keybaord shorcuts to modify the visualization GUI:
+- `'g'` to open/close the search, test and params tabs
+- `'j'` (with wireframe rendering activated) to show links and joints frames as RGB lines
+- `'k'` (with wireframe rendering activated) to show joint axes as a black line
+- `'l'` (with wireframe rendering activated) seems to have the same functionality as 'k'
+- `'a'` (with wireframe rendering activated) to show collision boxes
