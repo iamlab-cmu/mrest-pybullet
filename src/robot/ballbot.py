@@ -16,11 +16,11 @@ class Ballbot:
         self._urdf_path = urdf_path
         self.reset(startPos, startOrientationEuler)
 
-        self.state = State()
-        self.update_robot_state()
-
         self._arm_mode = p.POSITION_CONTROL
         #self._arm_mode = p.TORQUE_CONTROL
+
+        self.state = State()
+        self.update_robot_state()
 
         # Add Sensors
         self.lidar = Lidar(self.robot, self.linkIds[BODY_LASER_LINK_NAME])
@@ -234,8 +234,11 @@ class Ballbot:
         self.arm_vel = [p.getJointState(self.robot, self.jointIds[i])[
             1] for i in range(self.nArmJoints)]
         # TODO: need to find a way to publish joint torques to the ros topics
-        self.arm_torque = [p.getJointState(self.robot, self.jointIds[i])[
-            3] for i in range(self.nArmJoints)]
+
+        # if arm in position control, get torque. Otherwise torque is the commanded torque set in drive_arms
+        if self._arm_mode is p.POSITION_CONTROL:
+            self.arm_torque = [p.getJointState(self.robot, self.jointIds[i])[
+                3] for i in range(self.nArmJoints)]
 
     def get_wrist_wrench_measurement(self):
         wrench_right = p.getJointState(self.robot, self.ftJointIds[0])[2]
@@ -254,9 +257,11 @@ class Ballbot:
 
     def set_arm_torque_mode(self):
         self._arm_mode = p.TORQUE_CONTROL
+        print("Arm control mode set to TORQUE_CONTROL")
 
     def set_arm_position_mode(self):
         self._arm_mode = p.POSITION_CONTROL
+        print("Arm control mode set to POSITION_CONTROL")
 
     def drive_imbd(self, torque_x, torque_y):
         """
@@ -305,3 +310,5 @@ class Ballbot:
 
             p.setJointMotorControl2(
                 self.robot, self.jointIds[i], p.TORQUE_CONTROL, force=torque_cmd[i])
+        if self._arm_mode is p.TORQUE_CONTROL:
+            self.arm_torque = torque_cmd
