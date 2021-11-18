@@ -111,12 +111,6 @@ def trajPublisher():
         pub_arm_left.publish(left_arm_msg)
         rate.sleep()
 
-    # while not rospy.is_shutdown():
-    #     hello_str = "hello world %s" % rospy.get_time()
-    #     rospy.loginfo(hello_str)
-    #     pub.publish(hello_str)
-    #     rate.sleep()
-
 if __name__ == '__main__':
     try:
         trajPublisher()
