@@ -389,6 +389,10 @@ class RobotSimulator(object):
             (np.array(rarm_torques), np.array(larm_torques))))
         self.ballbot.drive_imbd(torque_xx, torque_yy)
         # self.ballbot.drive_imbd(current_xx,current_yy)
+        contacts = p.getContactPoints(self.ballbot.robot)
+        p.removeAllUserDebugItems()
+        for c in contacts:
+            p.addUserDebugLine(c[6],c[6] + np.array(c[7]), [1,0,0])
 
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])
