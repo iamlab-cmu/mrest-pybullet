@@ -85,7 +85,7 @@ class RobotSimulator(object):
         joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
         self.ballbot.set_initial_config(joint_positions)
-        arm_joint_position = [0, 0, 0, 1.5, 0, 0, 0, 0, 0, 0, -1.5, 0, 0, 0]
+        arm_joint_position = [0, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0]
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
@@ -515,7 +515,7 @@ class RobotSimulator(object):
         self.tf_data[0].transform.rotation.x = 0.0
         self.tf_data[0].transform.rotation.y = 0.0
         self.tf_data[0].transform.rotation.z = 0.0
-        self.tf_data[0].transform.rotation.w = 0.0
+        self.tf_data[0].transform.rotation.w = 1.0
 
         # TF base_link->base_footprint
         self.tf_data.append(TransformStamped())
