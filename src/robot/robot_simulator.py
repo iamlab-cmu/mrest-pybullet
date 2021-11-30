@@ -26,6 +26,7 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 1/240.
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
+PRINT_MODEL_INFO = False
 
 if USE_ROS:
     # ROS imports
@@ -89,8 +90,9 @@ class RobotSimulator(object):
         self.ballbot.set_arms_intial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
-        #self.ballbot.print_model_info()
-        self.ballbot.print_joint_info()
+        if PRINT_MODEL_INFO:
+            self.ballbot.print_model_info()
+            self.ballbot.print_joint_info()
 
         # By default have an empty environment
         self.environemnt = None
@@ -425,8 +427,8 @@ class RobotSimulator(object):
         self.odom_msg.yaw = self.ballbot.bodyOrientEuler[2]
         self.odom_msg.xVel = self.ballbot.ballLinVelInWorldFrame[0]
         self.odom_msg.yVel = self.ballbot.ballLinVelInWorldFrame[1]
-        self.odom_msg.xAng = self.ballbot.bodyOrientEuler[0]
-        self.odom_msg.yAng = self.ballbot.bodyOrientEuler[1]
+        self.odom_msg.xAng = self.ballbot.state.xAng
+        self.odom_msg.yAng = self.ballbot.state.yAng
         self.odom_msg.xAngVel = self.ballbot.ballRadialVelInBodyOrient[0]
         self.odom_msg.yAngVel = self.ballbot.ballRadialVelInBodyOrient[1]
         self.odom_pub.publish(self.odom_msg)
@@ -495,7 +497,7 @@ class RobotSimulator(object):
 
         # TODO add joints for turret
         turret_pos = [0.0, 0.0]
-        self.joint_state_msg.position = self.ballbot.bodyOrientEuler + \
+        self.joint_state_msg.position = self.ballbot.state.body_state()+ \
             self.ballbot.arm_pos + turret_pos
         #self.joint_state_msg.velocity = self.ballbot.bodyAngVel + self.ballbot.arm_vel
         #self.joint_state_msg.effort = 0
@@ -509,8 +511,8 @@ class RobotSimulator(object):
         self.tf_data[0].header.stamp = rospy.Time.now()
         self.tf_data[0].header.frame_id = "odom"
         self.tf_data[0].child_frame_id = "base_link"
-        self.tf_data[0].transform.translation.x = self.ballbot.ballPosInBodyOrient[0]
-        self.tf_data[0].transform.translation.y = self.ballbot.ballPosInBodyOrient[1]
+        self.tf_data[0].transform.translation.x = self.ballbot.ballPosInWorldFrame[0]
+        self.tf_data[0].transform.translation.y = self.ballbot.ballPosInWorldFrame[1]
         self.tf_data[0].transform.translation.z = 0.0
         self.tf_data[0].transform.rotation.x = 0.0
         self.tf_data[0].transform.rotation.y = 0.0

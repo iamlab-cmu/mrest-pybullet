@@ -25,3 +25,6 @@ class State:
     self.xAng = xAng
     self.yAng = yAng
     self.yaw = yaw
+
+  def body_state(self):
+    return [self.xAng,self.yAng, self.yaw]
