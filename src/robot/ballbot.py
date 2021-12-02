@@ -72,6 +72,8 @@ class Ballbot:
                 self.ftJointIds.append(j)
 
         self.nArmJoints = len(self.arm_joint_names)
+        self.rightEndEffectorId = self.linkIds[REND_EFFECTOR_NAME]
+        self.leftEndEffectorId = self.linkIds[LEND_EFFECTOR_NAME]
 
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
@@ -93,9 +95,6 @@ class Ballbot:
         print("info1: ", p.getBodyInfo(self.robot))
         for i in range(p.getNumBodies()):
             print("info: ", p.getBodyInfo(i))
-        # for i in range(p.getNumBodies()):
-        #    info = p.getBodyInfo(self.robot, i)
-        #    print(info)
 
     def print_joint_info(self):
         for i in range(self.nJoints):
@@ -104,6 +103,9 @@ class Ballbot:
             print(" Damping: ", info[6])
             print(" Friction: ", info[7])
             print(" Link: ", info[12])
+    
+    def print_link_info(self):
+        print(self.linkIds)
 
     def draw_inertia_box(self):
         # body
@@ -262,7 +264,26 @@ class Ballbot:
     def set_arm_position_mode(self):
         self._arm_mode = p.POSITION_CONTROL
         print("Arm control mode set to POSITION_CONTROL")
+    
+    def apply_external_wrench(self, wrench, linkId, position = [0,0,0], frame = p.WORLD_FRAME ):
+        """
+            Applies an instaneous wrench (force and torque) to a given frame in a link. 
+            After each simulation step, the external forces are cleared to zero.
+            
+            @parameter[in]  wrench      6DOF vector containing force (N) and torque (Nm) 
+                                        to apply [Fx,Fy,Fz,Tx,Ty,Tz] aligned with the WORLD_FRAME
+            @parameter[in]  frame       the frame to which the wrench is applied to
+            @parameter[in]  position    3D position [m] on the link where the force is applied 
+            @parameter[in]  frame       Specify the coordinate system of force/position: 
+                                        either WORLD_FRAME for Cartesian world coordinates or 
+                                        LINK_FRAME for local link coordinates
+        """
 
+        forces = wrench[0:3]
+        torques = wrench[3:]
+        p.applyExternalForce(objectUniqueId=self.robot, linkIndex=linkId, forceObj=forces, posObj = position, flags=frame)
+        p.applyExternalTorque(objectUniqueId=self.robot, linkIndex=linkId, torqueObj=torques, flags=frame)
+    
     def drive_imbd(self, torque_x, torque_y):
         """
             Applies the torques given in body frame to drive the ball

@@ -43,6 +43,7 @@ if USE_ROS:
     from sensor_msgs.msg import JointState
     from geometry_msgs.msg import TransformStamped
     from geometry_msgs.msg import WrenchStamped
+    from geometry_msgs.msg import Wrench
     from tf2_msgs import *
 
     # Find package work space to retrieve urdf
@@ -93,6 +94,7 @@ class RobotSimulator(object):
         if PRINT_MODEL_INFO:
             self.ballbot.print_model_info()
             self.ballbot.print_joint_info()
+            self.ballbot.print_link_info()
 
         # By default have an empty environment
         self.environemnt = None
@@ -153,7 +155,7 @@ class RobotSimulator(object):
             p.disconnect()
             raise SystemExit
         rospy.init_node('pybullet_ballbot')
-        # Subscriber
+        ### Subscriber
         # Ball cmds and state
         self.olc_cmd_sub = rospy.Subscriber(
             "/rt/olc_cmd", OlcCmd, self.update_olc_cmd)
@@ -182,13 +184,18 @@ class RobotSimulator(object):
             "/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
         self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
 
+        # External force commands
+        self.external_wrench_right_cmd_sub = rospy.Subscriber("/pybullet/wrench_cmd/right/",Wrench,self.update_external_wrench_right_cmd)
+        self.external_wrench_left_cmd_sub = rospy.Subscriber("/pybullet/wrench_cmd/left/",Wrench,self.update_external_wrench_left_cmd)
+
+        ### Publisher
         # Sensors
         self.body_laser_pub = rospy.Publisher(
             "/scan", LaserScan, queue_size=10)
         self.body_laser_msg = LaserScan()
         self.body_laser_msg.header.frame_id = BODY_LASER_LINK_NAME
-
-        # Publisher
+        
+        # Time
         self.clock_pub = rospy.Publisher("/clock", Clock, queue_size=1000)
         self.sim_clock_msg = Clock()
         self.sim_wall_time = 0.0
@@ -266,6 +273,18 @@ class RobotSimulator(object):
 
     def update_larm_effort_cmd(self, msg):
         self.larm_torque_command = msg.data
+    
+    def update_external_wrench_right_cmd(self, msg):
+        wrench_cmd = [msg.force.x, msg.force.y, msg.force.z, 
+                                          msg.torque.x, msg.torque.y, msg.torque.z]
+
+        self.ballbot.apply_external_wrench(wrench_cmd, self.ballbot.rightEndEffectorId)
+
+    def update_external_wrench_left_cmd(self, msg):
+        wrench_cmd = [msg.force.x, msg.force.y, msg.force.z, 
+                                          msg.torque.x, msg.torque.y, msg.torque.z]
+
+        self.ballbot.apply_external_wrench(wrench_cmd, self.ballbot.leftEndEffectorId)
 
     def setup_controller(self):
         self.body_controller = BodyController()

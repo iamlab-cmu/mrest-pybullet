@@ -39,6 +39,10 @@ BODY_JOINT_NAMES = ('xAngle', 'yAngle', 'yaw')
 JOINT_NAMES = BODY_JOINT_NAMES + RARM_JOINT_NAMES + \
     LARM_JOINT_NAMES + TURRET_JOINT_NAMES
 
+""" Ballbot End-Effectors """
+REND_EFFECTOR_NAME = "toolR"
+LEND_EFFECTOR_NAME = "toolL"
+
 """ Ballbot Sensor Parameters """
 BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
 ENABLE_LASER = False
