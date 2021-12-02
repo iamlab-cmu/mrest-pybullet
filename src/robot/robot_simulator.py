@@ -213,9 +213,9 @@ class RobotSimulator(object):
         self.body_state_msg = Odom()
 
         # Force Torque sensor publish
-        self.wrench_right_pub = rospy.Publisher("/ballbot/state/wrench/right", WrenchStamped, queue_size=1000)
+        self.wrench_right_pub = rospy.Publisher("/pybullet/ballbot/state/wrench/right", WrenchStamped, queue_size=1000)
         self.wrench_right_msg = WrenchStamped()
-        self.wrench_left_pub = rospy.Publisher("/ballbot/state/wrench/left", WrenchStamped, queue_size=1000)
+        self.wrench_left_pub = rospy.Publisher("/pybullet/ballbot/state/wrench/left", WrenchStamped, queue_size=1000)
         self.wrench_left_msg = WrenchStamped()
 
         # TF publisher
