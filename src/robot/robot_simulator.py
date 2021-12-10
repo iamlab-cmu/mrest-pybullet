@@ -27,6 +27,7 @@ SIMULATION_TIME_STEP_S = 1/240.
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
 PRINT_MODEL_INFO = False
+DRAW_CONTACT_FORCES = False
 
 if USE_ROS:
     # ROS imports
@@ -52,8 +53,8 @@ if USE_ROS:
         'ballbot_arm_description').split("/ballbot_arm_description")[0]
 else:
     # PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-    #PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
-    PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
+    PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
+    # PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
 
 
 class BallState(Enum):
@@ -99,23 +100,27 @@ class RobotSimulator(object):
         # By default have an empty environment
         self.environemnt = None
 
-        self.setup_gui()
+        # Control Variables
+        self.olcCmdXAng = 0.0
+        self.olcCmdYAng = 0.0
+        self.olcCmdXVel = 0.0
+        self.olcCmdYVel = 0.0
+        self.rarm_joint_command = [0, 0, 0, 0, 0, 0, 0]
+        self.larm_joint_command = [0, 0, 0, 0, 0, 0, 0]
+        self.rarm_torque_command = [0, 0, 0, 0, 0, 0, 0]
+        self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
+
+        # Setup controller
+        self.setup_controller()
         if USE_ROS:
             #p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
 
             p.resetDebugVisualizerCamera(
                 cameraDistance=4.0, cameraYaw=110, cameraPitch=-30, cameraTargetPosition=[0.24, -0.02, -0.09])
             self.setup_ROS()
-
-        # Setup controller
-        self.setup_controller()
-        self.read_user_params()
-
-        # Control Variables
-        self.olcCmdXAng = 0.0
-        self.olcCmdYAng = 0.0
-        self.olcCmdXVel = 0.0
-        self.olcCmdYVel = 0.0
+        else:
+            self.setup_gui()
+            self.read_user_params()
 
         # setup static ballbot for arm gravity compensation
         self.physicsClientStatic = bc.BulletClient(connection_mode=p.DIRECT)
@@ -172,17 +177,13 @@ class RobotSimulator(object):
         self.torque_mode_srv = rospy.Service('/ballbotArms/switch_torque_mode', SetBool, self.update_torque_mode)
         self.rarm_joint_sub = rospy.Subscriber(
             "/ballbotArms/controller/joint_impedance/right/command", ArmCommand, self.update_rarm_cmd)
-        self.rarm_joint_command = [0, 0, 0, 0, 0, 0, 0]
         self.larm_joint_sub = rospy.Subscriber(
             "/ballbotArms/controller/joint_impedance/left/command", ArmCommand, self.update_larm_cmd)
-        self.larm_joint_command = [0, 0, 0, 0, 0, 0, 0]
 
         self.rarm_effort_sub = rospy.Subscriber(
             "/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
-        self.rarm_torque_command = [0, 0, 0, 0, 0, 0, 0]
         self.larm_effort_sub = rospy.Subscriber(
             "/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
-        self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
 
         # External force commands
         self.external_wrench_right_cmd_sub = rospy.Subscriber("/pybullet/wrench_cmd/right/",Wrench,self.update_external_wrench_right_cmd)
@@ -288,6 +289,7 @@ class RobotSimulator(object):
 
     def setup_controller(self):
         self.body_controller = BodyController()
+        self.body_controller._com_balancing_control.set_gains(250,10,10)
         self.rarm_controller = ArmController()
         self.larm_controller = ArmController()
         self.arm_joint_command = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -411,9 +413,10 @@ class RobotSimulator(object):
         self.ballbot.drive_imbd(torque_xx, torque_yy)
         # self.ballbot.drive_imbd(current_xx,current_yy)
         contacts = p.getContactPoints(self.ballbot.robot)
-        p.removeAllUserDebugItems()
-        for c in contacts:
-            p.addUserDebugLine(c[6],c[6] + np.array(c[7]), [1,0,0])
+        if DRAW_CONTACT_FORCES:
+            p.removeAllUserDebugItems()
+            for c in contacts:
+                p.addUserDebugLine(c[6],c[6] + np.array(c[7])*c[9], [1,0,0])
 
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])

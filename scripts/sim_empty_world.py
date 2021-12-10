@@ -37,9 +37,10 @@ if __name__ == "__main__":
 
     while(1):
         # Read user params
-        robot_simulator.read_user_params()
         if USE_ROS:
             robot_simulator.read_ROS_params()
+        else:
+            robot_simulator.read_user_params()
         robot_simulator.step()
         p.stepSimulation()
 
