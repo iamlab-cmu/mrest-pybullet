@@ -17,7 +17,6 @@ from enum import Enum
 
 from robot.robot_simulator import *
 from robot.definitions import *
-from environments.environments import TableEnv
 
 # Simulation parameters
 LOG_VIDEO = False
@@ -30,7 +29,6 @@ if __name__ == "__main__":
 
     """ Main Loop """
     robot_simulator.update_robot_state(BallState.OLC)
-    robot_simulator.ballbot.set_arm_torque_mode()
 
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
