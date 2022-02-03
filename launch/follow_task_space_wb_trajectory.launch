@@ -1,6 +1,6 @@
 <launch>
 
-  <!-- set use_sim_time flag -->
+  <!-- load trajectory -->
   <rosparam file="$(find ballbot_pybullet_sim)/motions/test_push.yaml" command="load"/>
 
   <!-- Main trajectory publisher node-->

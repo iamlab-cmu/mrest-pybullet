@@ -73,7 +73,6 @@ def trajPublisher():
     rate = rospy.Rate(traj_freq) # 100hz
 
     # get current state robot state
-    # TODO
     base_init = np.array([[0.0, 0.0]])
 
     current_right_pose_msg = rospy.wait_for_message('/task_space_control/right/debug/reference',TaskSpaceControl)
