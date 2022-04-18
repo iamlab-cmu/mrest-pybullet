@@ -33,6 +33,23 @@ class Ballbot:
         self.yAngleBody = 0.0
         self.yawBody = 0.0
 
+        viewMatrix = p.computeViewMatrix(
+        cameraEyePosition=[0, 3, 2],
+        cameraTargetPosition=[0, 0, 1],
+        cameraUpVector=[0, 0, 1])
+
+        projectionMatrix = p.computeProjectionMatrixFOV(
+        fov=45.0,
+        aspect=1.0,
+        nearVal=0.1,
+        farVal=5.1)
+
+        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+        width=224,
+        height=224,
+        viewMatrix=viewMatrix,
+        projectionMatrix=projectionMatrix)
+
     def reset(self, startPos, startOrientationEuler):
         # Convert from Ballbot Body Orient notation to Pybullet notation
         startOrientationEulerStandardFrame = convertEulerBBToStandardFrame(
