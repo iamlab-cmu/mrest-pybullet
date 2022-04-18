@@ -1,0 +1,63 @@
+base:
+  motion:
+    name: demo_wave
+    number_waypoints: 1
+    waypoint0:
+      duration: 0.5
+      acceleration: [0.10, 0.10]
+      velocity: [0.1, 0.1]
+      position: [0.0, 0.0]
+    # waypoint1:
+    #   duration: 0.5
+    #   acceleration: [0.0, 0.0]
+    #   velocity: [0.0, 0.0]
+    #   position: [0.0, 0.05]
+    # waypoint2:
+    #   duration: 0.5
+    #   acceleration: [0.0, 0.0]
+    #   velocity: [0.0, 0.0]
+    #   position: [0.0, 0.0]
+right:
+  motion:
+    name: demo_wave
+    number_waypoints: 8
+    waypoint0:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, -1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint1:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, 1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint2:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, -1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint3:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, 1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint4:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, -1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint5:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, 1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint6:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, -1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint7:
+      duration: 1.5
+      position: [0.0, 1.5, 1.0, 1.5, 0.0, 1.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+left:
+  motion:
+    name: demo_wave
+    number_waypoints: 1
+    waypoint0:
+      duration: 2.0
+      position: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+      velocity: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

@@ -1,0 +1,9 @@
+<launch>
+
+  <!-- load trajectory -->
+  <rosparam file="$(find ballbot_pybullet_sim)/motions/test_q_trajectory.yaml" command="load"/>
+
+  <!-- Main trajectory publisher node-->
+  <node name="arm_joint_angle_trajectory_publisher" pkg="ballbot_pybullet_sim" type="arm_joint_angle_trajectory_publisher.py" respawn="false" output="screen"/>
+
+</launch>

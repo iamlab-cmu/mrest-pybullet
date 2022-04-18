@@ -12,6 +12,7 @@ from os import times
 from numpy.core.function_base import linspace
 import rospy
 from ballbot_arm_msgs.msg import TaskSpaceTrajectory
+from ballbot_arm_msgs.msg import TaskSpaceControl
 import numpy as np
 from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
 from std_msgs.msg import Header
@@ -72,12 +73,16 @@ def trajPublisher():
     rate = rospy.Rate(traj_freq) # 100hz
 
     # get current state robot state
-    # TODO
     base_init = np.array([[0.0, 0.0]])
-    right_pos_init = np.array([[0.27, 0.0, 0.85]]) # position xyz, 
-    right_orient_init = np.array([[0.72, -0.68, -0.68, -0.11]]) # quaternion xyzw
-    left_pos_init = np.array([[-0.27, 0.0, 0.85]]) # position xyz 
-    left_orient_init = np.array([[0.72, -0.68, -0.68, -0.11]]) # quaternion xyzw
+
+    current_right_pose_msg = rospy.wait_for_message('/task_space_control/right/debug/reference',TaskSpaceControl)
+    right_pos_init = np.array([[current_right_pose_msg.pose_actual.pose.position.x, current_right_pose_msg.pose_actual.pose.position.y, current_right_pose_msg.pose_actual.pose.position.z]])
+    right_orient_init = np.array([[current_right_pose_msg.pose_actual.pose.orientation.x, current_right_pose_msg.pose_actual.pose.orientation.y, current_right_pose_msg.pose_actual.pose.orientation.z, current_right_pose_msg.pose_actual.pose.orientation.w]])
+
+
+    current_left_pose_msg = rospy.wait_for_message('/task_space_control/left/debug/reference',TaskSpaceControl)
+    left_pos_init = np.array([[current_left_pose_msg.pose_actual.pose.position.x, current_left_pose_msg.pose_actual.pose.position.y, current_left_pose_msg.pose_actual.pose.position.z]])
+    left_orient_init = np.array([[current_left_pose_msg.pose_actual.pose.orientation.x, current_left_pose_msg.pose_actual.pose.orientation.y, current_left_pose_msg.pose_actual.pose.orientation.z, current_left_pose_msg.pose_actual.pose.orientation.w]])
 
 
     # import base waypoints     
