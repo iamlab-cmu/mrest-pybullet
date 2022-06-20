@@ -9,6 +9,7 @@ project(ballbot_pybullet_sim)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   ballbot_arm_description
+  ballbot_sensor_description
   ballbot_arm_msgs
   rospy
   rt_msgs

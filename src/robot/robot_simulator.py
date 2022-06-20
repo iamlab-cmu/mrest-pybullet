@@ -19,6 +19,7 @@ from robot.definitions import *
 from robot.ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
+from controllers.turret_controller import TurretController
 
 # Simulation parameters
 # TODO: simulation time step has to be set to 1/240 as it is the default pybullet time step
@@ -26,7 +27,7 @@ from controllers.arm_controller import ArmController
 SIMULATION_TIME_STEP_S = 1/240.
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
-PRINT_MODEL_INFO = False
+PRINT_MODEL_INFO = True
 DRAW_CONTACT_FORCES = False
 
 if USE_ROS:
@@ -85,11 +86,18 @@ class RobotSimulator(object):
                                    startPos=startPos, startOrientationEuler=startOrientationEuler)
 
         # TODO make a cleaner version for setting initial state pose.
-        joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
-                           0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
+        # joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
+        #                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
+        joint_positions = [0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
+                           0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0,
+                           0.0, 0.0, 0.0, 0.0, 0.0]       
+
+        # joint ID 3 is turret pan , joint ID 4 is turret tilt         
         self.ballbot.set_initial_config(joint_positions)
         arm_joint_position = [0, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0]
         self.ballbot.set_arms_intial_config(arm_joint_position)
+        turret_joint_position = [0., 0.] # ['turret_pan', 'turret_tilt']
+        self.ballbot.set_turret_intial_config(turret_joint_position)
 
         self.ballbot_state = BallState.BALANCE
         if PRINT_MODEL_INFO:
@@ -109,6 +117,9 @@ class RobotSimulator(object):
         self.larm_joint_command = [0, 0, 0, 0, 0, 0, 0]
         self.rarm_torque_command = [0, 0, 0, 0, 0, 0, 0]
         self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
+
+        self.turret_joint_command = [0, 0] # pan, tilt
+        self.turret_torque_command = [0, 0] # pan, tilt
 
         # Setup controller
         self.setup_controller()
@@ -261,6 +272,7 @@ class RobotSimulator(object):
             print("Ballbot arm mode changed to TORQUE")
         else:
             self.ballbot.set_arm_position_mode()
+            self.ballbot.set_turret_position_mode()
             print("Ballbot arm mode changed to POSITION")
 
     def update_rarm_cmd(self, msg):
@@ -274,6 +286,12 @@ class RobotSimulator(object):
 
     def update_larm_effort_cmd(self, msg):
         self.larm_torque_command = msg.data
+
+    def update_turret_cmd(self, msg):
+        self.turret_joint_command = msg.position
+
+    def update_turret_effort_cmd(self, msg):
+        self.turret_torque_command = msg.data
     
     def update_external_wrench_right_cmd(self, msg):
         wrench_cmd = [msg.force.x, msg.force.y, msg.force.z, 
@@ -293,6 +311,7 @@ class RobotSimulator(object):
         self.rarm_controller = ArmController()
         self.larm_controller = ArmController()
         self.arm_joint_command = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.turret_controller = TurretController()
 
     def update_robot_state(self, state):
         if state == BallState.STATIC:
@@ -319,6 +338,9 @@ class RobotSimulator(object):
         # Update robot sensors
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
+        if ENABLE_TURRET_CAMERA:
+            self.cameraFeedback = self.ballbot.update_turretCamera()
+        
         self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
@@ -407,9 +429,23 @@ class RobotSimulator(object):
             rarm_torques = self.rarm_torque_command
             larm_torques = self.larm_torque_command
 
+        """ Turret Commands """
+        if self.ballbot._turret_mode == p.POSITION_CONTROL:
+
+            self.turret_controller.update_current_state(
+                self.ballbot.turret_pos, self.ballbot.turret_vel)
+            # self.turret_controller.set_desired_angles(
+            #     self.turret_joint_command)
+            self.turret_controller.update(SIMULATION_TIME_STEP_S)
+            turret_torques = self.turret_controller.turretTorques
+        else:
+            turret_torques = self.turret_torque_command
+
         # Apply torque to robot
         self.ballbot.drive_arms(self.arm_joint_command, np.concatenate(
             (np.array(rarm_torques), np.array(larm_torques))))
+        self.ballbot.drive_turret(self.turret_joint_command, 
+            np.array(turret_torques))
         self.ballbot.drive_imbd(torque_xx, torque_yy)
         # self.ballbot.drive_imbd(current_xx,current_yy)
         contacts = p.getContactPoints(self.ballbot.robot)

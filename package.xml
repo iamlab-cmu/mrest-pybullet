@@ -33,14 +33,17 @@
   <!-- Dependencies can be catkin packages or system dependencies -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>ballbot_arm_description</build_depend>
+  <build_depend>ballbot_sensor_description</build_depend>
   <build_depend>ballbot_arm_msgs</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>rt_msgs</build_depend>
   <build_export_depend>ballbot_arm_description</build_export_depend>
+  <build_export_depend>ballbot_sensor_description</build_export_depend>
   <build_export_depend>ballbot_arm_msgs</build_export_depend>
   <build_export_depend>rospy</build_export_depend>
   <build_export_depend>rt_msgs</build_export_depend>
   <exec_depend>ballbot_arm_description</exec_depend>
+  <exec_depend>ballbot_sensor_description</exec_depend>
   <exec_depend>ballbot_arm_msgs</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>rt_msgs</exec_depend>

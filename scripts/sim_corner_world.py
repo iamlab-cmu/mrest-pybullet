@@ -20,7 +20,7 @@ from robot.definitions import *
 from environments.environments import CornerEnv
 
 # Simulation parameters
-LOG_VIDEO = False
+LOG_VIDEO = True
 VIDEO_FILE_NAME = "ballbot_grasp"
 
 if __name__ == "__main__":
@@ -38,7 +38,9 @@ if __name__ == "__main__":
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
 
-    while(1):
+    # while(1):
+    from tqdm import trange
+    for _ in trange(1000):
         # Read user params
         if USE_ROS:
             robot_simulator.read_ROS_params()

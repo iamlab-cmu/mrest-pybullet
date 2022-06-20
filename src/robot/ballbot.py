@@ -19,6 +19,8 @@ class Ballbot:
         self._arm_mode = p.POSITION_CONTROL
         #self._arm_mode = p.TORQUE_CONTROL
 
+        self._turret_mode = p.POSITION_CONTROL
+
         self.state = State()
         self.update_robot_state()
 
@@ -34,21 +36,25 @@ class Ballbot:
         self.yawBody = 0.0
 
         viewMatrix = p.computeViewMatrix(
-        cameraEyePosition=[0, 3, 2],
-        cameraTargetPosition=[0, 0, 1],
-        cameraUpVector=[0, 0, 1])
+                        cameraEyePosition=[0, 3, 2],
+                        cameraTargetPosition=[0, 0, 1],
+                        cameraUpVector=[0, 0, 1])
 
-        projectionMatrix = p.computeProjectionMatrixFOV(
-        fov=45.0,
-        aspect=1.0,
-        nearVal=0.1,
-        farVal=5.1)
+        self.turretCamera_projectionMatrix = p.computeProjectionMatrixFOV(
+                        fov=45.0,
+                        aspect=1.0,
+                        nearVal=0.1,
+                        farVal=5.1)
+        self.update_turretCamera()
+        # Example projection matrix from https://github.com/bulletphysics/bullet3/issues/1616
+        # fov, aspect, nearplane, farplane = 60, 1.0, 0.01, 100
+        # projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
 
-        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
-        width=224,
-        height=224,
-        viewMatrix=viewMatrix,
-        projectionMatrix=projectionMatrix)
+        # width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+        #                                             width=224,
+        #                                             height=224,
+        #                                             viewMatrix=viewMatrix,
+        #                                             projectionMatrix=self.turretCamera_projectionMatrix)
 
     def reset(self, startPos, startOrientationEuler):
         # Convert from Ballbot Body Orient notation to Pybullet notation
@@ -61,8 +67,10 @@ class Ballbot:
         self.nJoints = p.getNumJoints(self.robot)
 
         self.arm_joint_names = []
+        self.turret_joint_names = []
         self.jointIds = []
         self.ftJointIds  = []
+        self.turretJointIds  = []
 
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
@@ -84,11 +92,16 @@ class Ballbot:
             if jointName in ARMS_JOINT_NAMES:
                 self.jointIds.append(j)
                 self.arm_joint_names.append(jointName)
+
+            if jointName in TURRET_JOINT_NAMES:
+                self.turretJointIds.append(j)
+                self.turret_joint_names.append(jointName)
             
             if jointName in FT_SENSOR_JOINT_NAMES:
                 self.ftJointIds.append(j)
 
         self.nArmJoints = len(self.arm_joint_names)
+        self.nTurretJoints = len(self.turret_joint_names)
         self.rightEndEffectorId = self.linkIds[REND_EFFECTOR_NAME]
         self.leftEndEffectorId = self.linkIds[LEND_EFFECTOR_NAME]
 
@@ -103,6 +116,10 @@ class Ballbot:
     def set_arms_intial_config(self, joint_positions):
         for i in range(self.nArmJoints):
             p.resetJointState(self.robot, self.jointIds[i], joint_positions[i])
+    
+    def set_turret_intial_config(self, joint_positions):
+        for i in range(self.nTurretJoints):
+            p.resetJointState(self.robot, self.turretJointIds[i], joint_positions[i])
 
     def enable_force_torque_sensors(self):
         [p.enableJointForceTorqueSensor(self.robot,self.ftJointIds[i])for i in range(len(self.ftJointIds))]
@@ -246,6 +263,36 @@ class Ballbot:
         self.comPosInDriveFrame = self.transformWorldToDriveFrame(self.com_pos)
         # print("COMWorld: ", self.com_pos)
         # print("COMDrive: ", self.comPosInDriveFrame)
+    
+    def update_turretCamera(self):
+        turret_state = p.getLinkState(self.robot, self.linkIds[TURRET_CAMERA_LINK_NAME], computeForwardKinematics=True)
+        com_p = turret_state[0]
+        rot_matrix = p.getMatrixFromQuaternion(turret_state[1])
+        rot_matrix = np.array(rot_matrix).reshape(3, 3)
+        # Initial vectors
+        init_camera_vector = (1, 0, 0) # z-axis
+        init_up_vector = (0, 0, 1) # y-axis
+        # Rotated vectors
+        camera_vector = rot_matrix.dot(init_camera_vector)
+        up_vector = rot_matrix.dot(init_up_vector)
+
+        viewMatrix = p.computeViewMatrix(
+                        cameraEyePosition=com_p,
+                        cameraTargetPosition=com_p + 0.1 * camera_vector,
+                        cameraUpVector=up_vector)
+        
+        # camx, camy, camz = com_p
+        # viewMatrix = p.computeViewMatrix(
+        #                 cameraEyePosition=[camx, camy, camz],
+        #                 cameraTargetPosition=[camx-0, camy+5, camz-4],
+        #                 cameraUpVector=[0, 0, 1])
+
+        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+                                                    width=224,
+                                                    height=224,
+                                                    viewMatrix=viewMatrix,
+                                                    projectionMatrix=self.turretCamera_projectionMatrix)
+        return rgbImg
 
     def get_arms_state(self):
         self.arm_pos = [p.getJointState(self.robot, self.jointIds[i])[
@@ -259,6 +306,18 @@ class Ballbot:
             self.arm_torque = [p.getJointState(self.robot, self.jointIds[i])[
                 3] for i in range(self.nArmJoints)]
 
+    def get_turret_state(self):
+        self.turret_pos = [p.getJointState(self.robot, self.turretJointIds[i])[
+            0] for i in range(self.nTurretJoints)]
+        self.turret_vel = [p.getJointState(self.robot, self.turretJointIds[i])[
+            1] for i in range(self.nTurretJoints)]
+        # TODO: need to find a way to publish joint torques to the ros topics
+
+        # if arm in position control, get torque. Otherwise torque is the commanded torque set in drive_arms
+        if self._turret_mode is p.POSITION_CONTROL:
+            self.turret_torque = [p.getJointState(self.robot, self.turretJointIds[i])[
+                3] for i in range(self.nTurretJoints)]
+
     def get_wrist_wrench_measurement(self):
         wrench_right = p.getJointState(self.robot, self.ftJointIds[0])[2]
         wrench_left = p.getJointState(self.robot, self.ftJointIds[1])[2]
@@ -270,6 +329,7 @@ class Ballbot:
         self.get_ball_state()
         self.get_com_state()
         self.get_arms_state()
+        self.get_turret_state()
 
     def get_model_id(self):
         return self.robot
@@ -281,6 +341,14 @@ class Ballbot:
     def set_arm_position_mode(self):
         self._arm_mode = p.POSITION_CONTROL
         print("Arm control mode set to POSITION_CONTROL")
+    
+    def set_turret_torque_mode(self):
+        self._turret_mode = p.TORQUE_CONTROL
+        print("Turret control mode set to TORQUE_CONTROL")
+
+    def set_turret_position_mode(self):
+        self._turret_mode = p.POSITION_CONTROL
+        print("Turret control mode set to POSITION_CONTROL")
     
     def apply_external_wrench(self, wrench, linkId, position = [0,0,0], frame = p.WORLD_FRAME ):
         """
@@ -350,3 +418,19 @@ class Ballbot:
                 self.robot, self.jointIds[i], p.TORQUE_CONTROL, force=torque_cmd[i])
         if self._arm_mode is p.TORQUE_CONTROL:
             self.arm_torque = torque_cmd
+
+    def drive_turret(self, position_cmd, torque_cmd):
+        for i in range(self.nTurretJoints):
+            # first "unlock joint" for torque control and simulate friction force, (i.e. force = friction)
+            # TODO: Where did this model for friction came from? Since a force is being direction has to be set.
+            dyn_friction = abs(JOINT_DYNAMIC_FRICTION*self.turret_vel[i])
+            static_friction = TURRET_JOINT_FRICTION[i] if abs(
+                self.turret_vel[i]) < STICTION_VEL_THRESHOLD else 0.0
+            friction_force = static_friction + dyn_friction
+            p.setJointMotorControl2(
+                self.robot, self.turretJointIds[i], p.VELOCITY_CONTROL, targetVelocity=0, force=friction_force)
+
+            p.setJointMotorControl2(
+                self.robot, self.turretJointIds[i], p.TORQUE_CONTROL, force=torque_cmd[i])
+        if self._turret_mode is p.TORQUE_CONTROL:
+            self.turret_torque = torque_cmd

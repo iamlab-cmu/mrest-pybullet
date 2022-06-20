@@ -4,7 +4,8 @@
 
 
 from typing import Tuple
-URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
+# URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
+URDF_NAME = "/ballbot_arm_description/robots/urdf/test.urdf"
 
 """ Ballbot Control Parameters """
 BALLBOT_TIME_PERIOD_MS = 2  # milliseconds
@@ -24,6 +25,7 @@ LARM_JOINT_FRICTION = (SJ100_STATIC_FRICTION, SJ100_STATIC_FRICTION, SJ100_STATI
 RARM_JOINT_FRICTION = (SJ100_STATIC_FRICTION, SJ100_STATIC_FRICTION, SJ100_STATIC_FRICTION,
                        SJ100_STATIC_FRICTION, SJ75_STATIC_FRICTION, SJ75_STATIC_FRICTION, SJ75_STATIC_FRICTION)
 ARMS_JOINT_FRICTION = RARM_JOINT_FRICTION + LARM_JOINT_FRICTION
+TURRET_JOINT_FRICTION = (SJ100_STATIC_FRICTION, SJ100_STATIC_FRICTION)
 STICTION_VEL_THRESHOLD = 0.01  # Rad/sec
 
 LARM_JOINT_NAMES = ('JLA1', 'JLA2', 'JLA3', 'JLA4', 'JLA5', 'JLA6', 'JLA7')
@@ -46,5 +48,8 @@ LEND_EFFECTOR_NAME = "toolL"
 """ Ballbot Sensor Parameters """
 BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
 ENABLE_LASER = False
+
+TURRET_CAMERA_LINK_NAME = "camera_rgb_frame"   # name of turret camera link in URDF
+ENABLE_TURRET_CAMERA = True
 
 FT_SENSOR_JOINT_NAMES = ('RArm7-toolR','LArm7-toolL')
