@@ -1,0 +1,30 @@
+right:
+  motion:
+    name: test_tsc
+    number_waypoints: 1
+    waypoint0:
+      duration: 3.0
+      position: [0.3, 0.6, 1.2] # [0.3, -0.1, 0.81] [-0.275847, -0.032045,  0.812953]
+      orientation: [0.72, -1.08, -0.68, -0.11]
+    # waypoint1:
+    #   duration: 5.0
+    #   acceleration: []
+    #   velocity: []
+    #   position: [0.27, 0.5, 1.1]
+    #   orientation: [0.72, -0.68, -0.68, -0.11]
+left:
+  motion:
+    name: test_tsc
+    number_waypoints: 1
+    waypoint0:
+      duration: 3.0
+      acceleration: []
+      velocity: []
+      position: [-0.3, -0.6, 1.2] # [-0.3, -0.1, 0.81] # [-0.3, 0.5, 1.2]
+      orientation: [0.72, -0.68, -0.68, -0.11]
+    # waypoint1:
+    #   duration: 5.0
+    #   acceleration: []
+    #   velocity: []
+    #   position: [-0.27, 0.5, 1.1]
+    #   orientation: [0.72, -0.68, -0.68, -0.11]

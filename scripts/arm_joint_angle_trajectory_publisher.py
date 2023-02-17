@@ -98,7 +98,7 @@ def trajPublisher():
             left_arm_msg.position = q_left_des[:,i]
 
 
-        pub_olc.publish(olc_msg)
+        # pub_olc.publish(olc_msg)
         pub_arm_right.publish(right_arm_msg)
         pub_arm_left.publish(left_arm_msg)
         rate.sleep()

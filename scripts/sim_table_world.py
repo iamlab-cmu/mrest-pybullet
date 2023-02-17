@@ -21,15 +21,21 @@ from environments.environments import TableEnv
 
 # Simulation parameters
 LOG_VIDEO = True
-VIDEO_FILE_NAME = "ballbot_turret_tilt"
+VIDEO_FILE_NAME = "ballbot_test_station_keep"
 
 if __name__ == "__main__":
     # set pybullet environment
     robot_simulator = RobotSimulator(
         startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, 0])
 
+    test_type = "TEST_STATION_KEEP"
+
     """ Main Loop """
-    robot_simulator.update_robot_state(BallState.OLC)
+    if test_type == "TEST_STATION_KEEP":
+        robot_simulator.update_robot_state(BallState.STATION_KEEP)
+    else:
+        robot_simulator.update_robot_state(BallState.OLC)
+        
     robot_simulator.ballbot.set_arm_torque_mode()
 
     env = TableEnv(startPos=[0.0, 1., 0.], startOrientationEuler=[
@@ -39,12 +45,22 @@ if __name__ == "__main__":
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
 
+    
     # while(1):
     from tqdm import trange
-    for i in range(1000):
-        print(i)
-        # robot_simulator.body_controller.set_desired_ball_position(1,1)
-        robot_simulator.turret_controller.set_desired_angles([0.,1.57])
+    for i in trange(500):
+        if test_type == "TEST_STATION_KEEP":
+            robot_simulator.body_controller.set_desired_ball_position(1,1)
+        if test_type == "TEST_TURRET":
+            if i < 200:
+                robot_simulator.turret_controller.set_desired_angles([0.0,1.57])
+            elif i >= 200 and i < 400:
+                robot_simulator.turret_controller.set_desired_angles([0.0,1.])
+            elif i >= 400 and i < 600:
+                robot_simulator.turret_controller.set_desired_angles([2,1.])
+            else:
+                robot_simulator.turret_controller.set_desired_angles([-2,1.])
+
         if USE_ROS:
             robot_simulator.read_ROS_params()
         else:
@@ -60,3 +76,5 @@ if __name__ == "__main__":
     if LOG_VIDEO:
         robot_simulator.stop_video_log()
         print("STOP LOGGING VIDEO")
+    
+    p.unloadPlugin(robot_simulator.plugin)

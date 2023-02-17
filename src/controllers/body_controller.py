@@ -76,7 +76,8 @@ class BodyController(object):
         self._balancing_control.set_max_current(100)
         self._com_balancing_control.set_max_torque(100)
 
-        self._station_keeping_control.set_gains(0.1, 0, -0.01, 0.01, 0, -0.001)
+        self._station_keeping_control.set_gains(0.1, 0, -0.01, 0.15, 0, -0.001)
+        # self._station_keeping_control.set_gains(0.15, 0, -0.01, 0.15, 0, -0.01)
         self._station_keeping_control.set_max_com_displacement(0.1)
 
         # Start status for each of the controllers

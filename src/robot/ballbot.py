@@ -35,17 +35,19 @@ class Ballbot:
         self.yAngleBody = 0.0
         self.yawBody = 0.0
 
-        viewMatrix = p.computeViewMatrix(
+        
+        if ENABLE_TURRET_CAMERA:
+            viewMatrix = p.computeViewMatrix(
                         cameraEyePosition=[0, 3, 2],
                         cameraTargetPosition=[0, 0, 1],
                         cameraUpVector=[0, 0, 1])
 
-        self.turretCamera_projectionMatrix = p.computeProjectionMatrixFOV(
-                        fov=45.0,
-                        aspect=1.0,
-                        nearVal=0.1,
-                        farVal=5.1)
-        self.update_turretCamera()
+            self.turretCamera_projectionMatrix = p.computeProjectionMatrixFOV(
+                            fov=45.0,
+                            aspect=1.0,
+                            nearVal=0.1,
+                            farVal=5.1)
+            self.update_turretCamera()
         # Example projection matrix from https://github.com/bulletphysics/bullet3/issues/1616
         # fov, aspect, nearplane, farplane = 60, 1.0, 0.01, 100
         # projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)

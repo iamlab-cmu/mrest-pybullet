@@ -4,8 +4,8 @@
 
 
 from typing import Tuple
-# URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
-URDF_NAME = "/ballbot_arm_description/robots/urdf/test.urdf"
+URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
+# URDF_NAME = "/ballbot_arm_description/robots/urdf/test.urdf"
 
 """ Ballbot Control Parameters """
 BALLBOT_TIME_PERIOD_MS = 2  # milliseconds
@@ -50,6 +50,6 @@ BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
 ENABLE_LASER = False
 
 TURRET_CAMERA_LINK_NAME = "camera_rgb_frame"   # name of turret camera link in URDF
-ENABLE_TURRET_CAMERA = True
+ENABLE_TURRET_CAMERA = False
 
 FT_SENSOR_JOINT_NAMES = ('RArm7-toolR','LArm7-toolL')

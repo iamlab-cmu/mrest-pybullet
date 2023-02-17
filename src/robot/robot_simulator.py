@@ -9,6 +9,8 @@
 
 import pybullet as p
 import pybullet_data
+import pkgutil
+egl = pkgutil.get_loader('eglRenderer')
 import pybullet_utils.bullet_client as bc
 import time
 from datetime import datetime
@@ -37,7 +39,7 @@ if USE_ROS:
     import rospkg
     import tf2_ros
     from rosgraph_msgs.msg import Clock
-    from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState
+    from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState, TaskSpaceTrajectory
     from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
     from std_msgs.msg import Float64MultiArray
     from std_srvs.srv import SetBool
@@ -71,9 +73,12 @@ class BallState(Enum):
 
 class RobotSimulator(object):
     def __init__(self, startPos=[0.0, 0.0, 0.12], startOrientationEuler=[0, 0, 0]):
+
+        self.use_arm_olc = True
         # set pybullet environment
         self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
+        # self.plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin") #without this (https://pybullet.org/Bullet/phpBB3/viewtopic.php?t=13395) issue arises
 
         # set environment physics
         p.setGravity(0, 0, -10)
@@ -121,6 +126,9 @@ class RobotSimulator(object):
         self.turret_joint_command = [0, 0] # pan, tilt
         self.turret_torque_command = [0, 0] # pan, tilt
 
+        self.rarm_ts_command = [0, 0, 0]
+        self.larm_ts_command = [0, 0, 0]
+
         # Setup controller
         self.setup_controller()
         if USE_ROS:
@@ -141,6 +149,12 @@ class RobotSimulator(object):
         for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
             self.physicsClientStatic.changeDynamics(
                 self.robot_static, j, linearDamping=0, angularDamping=0)
+        
+        # Debugging: plotting EE goal location
+        p.addUserDebugLine([0.3, 0.6, 1.2],
+                           [0.3, 0.6, 1.2+0.1], [0,1,0], lineWidth=20,lifeTime=1000)
+        p.addUserDebugLine([-0.3, -0.6, 1.2],
+                           [-0.3, -0.6, 1.2+0.1], [0,0,1], lineWidth=20,lifeTime=1000)
 
     def setup_gui(self):
         # set user debug parameters
@@ -172,11 +186,23 @@ class RobotSimulator(object):
             raise SystemExit
         rospy.init_node('pybullet_ballbot')
         ### Subscriber
-        # Ball cmds and state
+        # Ball cmds and state 
+        if self.use_arm_olc:
+            self.olc_right_cmd_sub = rospy.Subscriber(
+                "/rt/right/olc_cmd", OlcCmd, self.update_right_olc_cmd)
+            self.olc_left_cmd_sub = rospy.Subscriber(
+                "/rt/left/olc_cmd", OlcCmd, self.update_left_olc_cmd)
+
         self.olc_cmd_sub = rospy.Subscriber(
             "/rt/olc_cmd", OlcCmd, self.update_olc_cmd)
-        self.olc_command_ROS = {'xAng': 0.0,
-                                'yAng': 0.0, 'xVel': 0.0, 'yVel': 0.0}
+        
+
+        self.olc_command_ROS = {'xAng': 0.0, 'yAng': 0.0, 
+                                'xVel': 0.0, 'yVel': 0.0,
+                                'xAng_left': 0.0, 'yAng_left': 0.0, 
+                                'xVel_left': 0.0, 'yVel_left': 0.0,
+                                'xAng_right': 0.0, 'yAng_right': 0.0, 
+                                'xVel_right': 0.0, 'yVel_right': 0.0,}
 
         self.vel_cmd_sub = rospy.Subscriber(
             "/rt/vel_cmd", VelCmd, self.update_vel_cmd)
@@ -195,6 +221,12 @@ class RobotSimulator(object):
             "/ballbotArms/controller/effort/right/command", Float64MultiArray, self.update_rarm_effort_cmd)
         self.larm_effort_sub = rospy.Subscriber(
             "/ballbotArms/controller/effort/left/command", Float64MultiArray, self.update_larm_effort_cmd)
+
+        # task space controller commands
+        self.rarm_ts_sub = rospy.Subscriber(
+            "/task_space_control/right/command", TaskSpaceTrajectory, self.update_rarm_ts_cmd)
+        self.larm_ts_sub = rospy.Subscriber(
+            "/task_space_control/left/command", TaskSpaceTrajectory, self.update_larm_ts_cmd)
 
         # External force commands
         self.external_wrench_right_cmd_sub = rospy.Subscriber("/pybullet/wrench_cmd/right/",Wrench,self.update_external_wrench_right_cmd)
@@ -234,7 +266,6 @@ class RobotSimulator(object):
         self.tf_pub = tf2_ros.TransformBroadcaster()
         #self.tf_pub = rospy.Publisher("/tf",TFMessage, queue_size=1000)
 
-
         print("ROS communication initialized")
 
     def setup_environment(self, env):
@@ -252,11 +283,29 @@ class RobotSimulator(object):
         else:
             print("[ERROR] no video log initialized, call start_video_log()")
 
+    def update_right_olc_cmd(self, msg):
+        self.olc_command_ROS['xAng_right'] = msg.yAng
+        self.olc_command_ROS['yAng_right'] = msg.xAng
+        self.olc_command_ROS['xVel_right'] = msg.yVel
+        self.olc_command_ROS['yVel_right'] = msg.xVel
+
+    def update_left_olc_cmd(self, msg):
+        self.olc_command_ROS['xAng_left'] = msg.yAng
+        self.olc_command_ROS['yAng_left'] = msg.xAng
+        self.olc_command_ROS['xVel_left'] = msg.yVel
+        self.olc_command_ROS['yVel_left'] = msg.xVel
+
     def update_olc_cmd(self, msg):
-        self.olc_command_ROS['xAng'] = msg.yAng
-        self.olc_command_ROS['yAng'] = msg.xAng
-        self.olc_command_ROS['xVel'] = msg.yVel
-        self.olc_command_ROS['yVel'] = msg.xVel
+        if self.use_arm_olc:
+            self.olc_command_ROS['xAng'] = (self.olc_command_ROS['xAng_right']+self.olc_command_ROS['xAng_left'])/1
+            self.olc_command_ROS['yAng'] = (self.olc_command_ROS['yAng_right']+self.olc_command_ROS['yAng_left'])/1
+            self.olc_command_ROS['xVel'] = (self.olc_command_ROS['xVel_right']+self.olc_command_ROS['xVel_left'])/1
+            self.olc_command_ROS['yVel'] = (self.olc_command_ROS['yVel_right']+self.olc_command_ROS['yVel_left'])/1
+        else:
+            self.olc_command_ROS['xAng'] = msg.yAng
+            self.olc_command_ROS['yAng'] = msg.xAng
+            self.olc_command_ROS['xVel'] = msg.yVel
+            self.olc_command_ROS['yVel'] = msg.xVel
 
     def update_vel_cmd(self, msg):
         self.olc_command_ROS['xVel'] = msg.velX
@@ -280,6 +329,12 @@ class RobotSimulator(object):
 
     def update_larm_cmd(self, msg):
         self.larm_joint_command = msg.position
+
+    def update_rarm_ts_cmd(self, msg):
+        self.rarm_ts_command = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z ])
+
+    def update_larm_ts_cmd(self, msg):
+        self.larm_ts_command = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z ])
 
     def update_rarm_effort_cmd(self, msg):
         self.rarm_torque_command = msg.data
@@ -399,6 +454,11 @@ class RobotSimulator(object):
         torque_yy = self.body_controller.yBallTorque
         torque_xx = self.body_controller.xBallTorque
 
+        # p.addUserDebugLine([self.olcCmdXAng, self.olcCmdYAng,0.0],[self.olcCmdXAng, self.olcCmdYAng,0.1], [1,0,0], lineWidth=20,lifeTime=0.1)
+        # p.addUserDebugLine([self.arm_ts_command[0],self.arm_ts_command[1],self.arm_ts_command[2]],
+        #                    [self.arm_ts_command[0],self.arm_ts_command[1],self.arm_ts_command[2]+0.1], [0,1,0], lineWidth=20,lifeTime=0.01)
+        # p.addUserDebugLine([self.arm_ts_command[3],self.arm_ts_command[4],self.arm_ts_command[5]],
+        #                    [self.arm_ts_command[3],self.arm_ts_command[4],self.arm_ts_command[5]+0.1], [0,0,1], lineWidth=20,lifeTime=0.01)
         '''
         print("torque_xx: ", torque_xx)
         print("torque_yy: ", torque_yy)
@@ -477,6 +537,8 @@ class RobotSimulator(object):
         self.olcCmdYAng = self.olc_command_ROS['yAng']
         self.olcCmdXVel = self.olc_command_ROS['xVel']
         self.olcCmdYVel = self.olc_command_ROS['yVel']
+        self.arm_ts_command = np.concatenate(
+            (np.array(self.rarm_ts_command), np.array(self.larm_ts_command)))
 
     def publish_state(self):
         self.odom_msg.xPos = self.ballbot.ballPosInWorldFrame[0]

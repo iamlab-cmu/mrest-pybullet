@@ -10,7 +10,7 @@ class TurretController(object):
             self._joint_controllers[j].set_max_output(1000)
         self.desiredAngles = np.array([0.0 for j in range(self.nJoints)])
         self.desiredAngleVel = np.array([0.0 for j in range(self.nJoints)])
-        self.set_gains([[100,0,1],[200,0,1]])
+        self.set_gains([[100,0,1],[100,0,1]])
 
     def set_gains(self, gains):
         for j in range(self.nJoints):
