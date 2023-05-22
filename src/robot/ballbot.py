@@ -9,17 +9,19 @@ from transformation import *
 from sensors.lidar import Lidar
 
 MAX_IMBD_TORQUE_NM = 100
-
+MAX_YAW_TORQUE_NM = 100
 
 class Ballbot:
     def __init__(self, urdf_path='', startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, 0]):
         self._urdf_path = urdf_path
         self.reset(startPos, startOrientationEuler)
 
-        self._arm_mode = p.POSITION_CONTROL
-        #self._arm_mode = p.TORQUE_CONTROL
+        # self._arm_mode = p.POSITION_CONTROL
+        self._arm_mode = p.TORQUE_CONTROL
 
         self._turret_mode = p.POSITION_CONTROL
+
+        self._barrett_hands_mode = p.TORQUE_CONTROL
 
         self.state = State()
         self.update_robot_state()
@@ -64,8 +66,11 @@ class Ballbot:
             startOrientationEuler)
         startOrientation = p.getQuaternionFromEuler(
             startOrientationEulerStandardFrame)
+        # self.robot = p.loadURDF(self._urdf_path, startPos,
+        #                         startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
         self.robot = p.loadURDF(self._urdf_path, startPos,
                                 startOrientation, useFixedBase=False)
+        
         self.nJoints = p.getNumJoints(self.robot)
 
         self.arm_joint_names = []
@@ -73,6 +78,13 @@ class Ballbot:
         self.jointIds = []
         self.ftJointIds  = []
         self.turretJointIds  = []
+        self.ballJointId = []
+
+        self.hand_type = 'knob' # 'barrett', 'parallel_gripper'
+        self.barrett_left_joint_names = []
+        self.barrett_left_jointIds = []
+        self.barrett_right_joint_names = []
+        self.barrett_right_jointIds = []
 
         # TODO: Ask Cornelia why changing the damping is necessary
         p.changeDynamics(self.robot, -1, linearDamping=0, angularDamping=0)
@@ -101,12 +113,35 @@ class Ballbot:
             
             if jointName in FT_SENSOR_JOINT_NAMES:
                 self.ftJointIds.append(j)
+            
+            if jointName in KNOB_JOINT_NAMES:
+                self.hand_type = 'knob'
+            
+            if jointName in BARRETT_LEFT_JOINT_NAMES:
+                self.hand_type = 'barrett'
+                self.barrett_left_jointIds.append(j)
+                self.barrett_left_joint_names.append(jointName)
+            
+            if jointName in BARRETT_RIGHT_JOINT_NAMES:
+                self.hand_type = 'barrett'
+                self.barrett_right_jointIds.append(j)
+                self.barrett_right_joint_names.append(jointName)
+            
+            if linkName == REND_EFFECTOR_NAME:
+                self.rightEndEffectorId = self.linkIds[REND_EFFECTOR_NAME]
+            if linkName == LEND_EFFECTOR_NAME:
+                self.leftEndEffectorId = self.linkIds[LEND_EFFECTOR_NAME]
+
+            if jointName in BALL_JOINT_NAME:
+                self.ballJointId.append(j)
+                print("ball joint id: ", self.ballJointId)
 
         self.nArmJoints = len(self.arm_joint_names)
         self.nTurretJoints = len(self.turret_joint_names)
-        self.rightEndEffectorId = self.linkIds[REND_EFFECTOR_NAME]
-        self.leftEndEffectorId = self.linkIds[LEND_EFFECTOR_NAME]
 
+        self.nBarrettLeftJoints = len(self.barrett_left_joint_names)
+        self.nBarrettRightJoints = len(self.barrett_right_joint_names)
+        
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
@@ -118,6 +153,14 @@ class Ballbot:
     def set_arms_intial_config(self, joint_positions):
         for i in range(self.nArmJoints):
             p.resetJointState(self.robot, self.jointIds[i], joint_positions[i])
+    
+    def set_barrett_left_hand_intial_config(self, joint_positions):
+        for i in range(self.nBarrettLeftJoints):
+            p.resetJointState(self.robot, self.barrett_left_jointIds[i], joint_positions[i])
+    
+    def set_barrett_right_hand_intial_config(self, joint_positions):
+        for i in range(self.nBarrettRightJoints):
+            p.resetJointState(self.robot, self.barrett_right_jointIds[i], joint_positions[i])
     
     def set_turret_intial_config(self, joint_positions):
         for i in range(self.nTurretJoints):
@@ -173,8 +216,10 @@ class Ballbot:
 
     def transformWorldToBodyFrame(self, pWorld):
         # translate world to body
-        pBody = pWorld[0:1] - self.bodyPositionInWorldFrame[0:1]
+        # pBody = pWorld[0:1] - self.bodyPositionInWorldFrame[0:1]
 
+        pBody = np.array(pWorld[0:2]) - np.array(self.bodyPositionInWorldFrame[0:2])
+        pBody = np.append(pBody, pWorld[2])
         # rotate world to body
         worldToBodyRotation = p.getQuaternionFromEuler(
             [0, 0, -self.bodyOrientEuler[2]])
@@ -206,8 +251,12 @@ class Ballbot:
             Return the body orientation
                 bodyOrientEuler = [xAngle,yAngle,yaw]
         """
-        imu_position, imu_orientation = p.getBasePositionAndOrientation(
-            self.robot)
+        # imu_position, imu_orientation = p.getBasePositionAndOrientation(
+        #     self.robot)
+        imu_state = p.getLinkState(
+            self.robot, self.ballJointId[0]+1, 0)
+        imu_position = imu_state[0]
+        imu_orientation = imu_state[1]
         imu_euler = p.getEulerFromQuaternion(imu_orientation)
 
         # TODO: ballbot has a weird convention to define xBodyAngle and yBodyAngle need to make them the same.
@@ -229,7 +278,7 @@ class Ballbot:
 
     def get_ball_state(self):
         # TODO: make the ball link id a variable
-        self.ball_state = p.getLinkState(self.robot, 0, 1)
+        self.ball_state = p.getLinkState(self.robot, self.ballJointId[0], 1)
         joint_state = p.getJointStateMultiDof(self.robot, 0)
         ball_orientation = self.ball_state[1]
 
@@ -319,6 +368,24 @@ class Ballbot:
         if self._turret_mode is p.POSITION_CONTROL:
             self.turret_torque = [p.getJointState(self.robot, self.turretJointIds[i])[
                 3] for i in range(self.nTurretJoints)]
+    
+    def get_barrett_hands_state(self):
+        self.barrett_left_hand_pos = [p.getJointState(self.robot, self.barrett_left_jointIds[i])[
+            0] for i in range(self.nBarrettLeftJoints)]
+        self.barrett_left_hand_vel = [p.getJointState(self.robot, self.barrett_left_jointIds[i])[
+            1] for i in range(self.nBarrettLeftJoints)]
+        
+        self.barrett_right_hand_pos = [p.getJointState(self.robot, self.barrett_right_jointIds[i])[
+            0] for i in range(self.nBarrettRightJoints)]
+        self.barrett_right_hand_vel = [p.getJointState(self.robot, self.barrett_right_jointIds[i])[
+            1] for i in range(self.nBarrettRightJoints)]
+        
+        # if arm in position control, get torque. Otherwise torque is the commanded torque set in drive_arms
+        if self._barrett_hands_mode is p.POSITION_CONTROL:
+            self.barrett_left_hand_torque = [p.getJointState(self.robot, self.barrett_left_jointIds[i])[
+                3] for i in range(self.nBarrettLeftJoints)]
+            self.barrett_right_hand_torque = [p.getJointState(self.robot, self.barrett_right_jointIds[i])[
+                3] for i in range(self.nBarrettRightJoints)]
 
     def get_wrist_wrench_measurement(self):
         wrench_right = p.getJointState(self.robot, self.ftJointIds[0])[2]
@@ -332,6 +399,8 @@ class Ballbot:
         self.get_com_state()
         self.get_arms_state()
         self.get_turret_state()
+        if self.hand_type == 'barrett':
+            self.get_barrett_hands_state()
 
     def get_model_id(self):
         return self.robot
@@ -352,6 +421,14 @@ class Ballbot:
         self._turret_mode = p.POSITION_CONTROL
         print("Turret control mode set to POSITION_CONTROL")
     
+    def set_barrett_hands_torque_mode(self):
+        self._barrett_hands_mode = p.TORQUE_CONTROL
+        print("Barrett hands control mode set to TORQUE_CONTROL")
+
+    def set_barrett_hands_position_mode(self):
+        self._barrett_hands_mode = p.POSITION_CONTROL
+        print("Barrett hands control mode set to POSITION_CONTROL")
+    
     def apply_external_wrench(self, wrench, linkId, position = [0,0,0], frame = p.WORLD_FRAME ):
         """
             Applies an instaneous wrench (force and torque) to a given frame in a link. 
@@ -370,7 +447,8 @@ class Ballbot:
         torques = wrench[3:]
         p.applyExternalForce(objectUniqueId=self.robot, linkIndex=linkId, forceObj=forces, posObj = position, flags=frame)
         p.applyExternalTorque(objectUniqueId=self.robot, linkIndex=linkId, torqueObj=torques, flags=frame)
-    
+
+
     def drive_imbd(self, torque_x, torque_y):
         """
             Applies the torques given in body frame to drive the ball
@@ -394,14 +472,14 @@ class Ballbot:
 
         # unlock motors
         p.setJointMotorControlMultiDof(self.robot,
-                                       0,
+                                       self.ballJointId[0],
                                        controlMode=p.POSITION_CONTROL,
                                        targetPosition=[0, 0, 0, 1],
                                        force=[0, 0, 0])
 
         # change to torque mode and set desired torques
         p.setJointMotorControlMultiDof(self.robot,
-                                       0,
+                                       self.ballJointId[0],
                                        controlMode=p.TORQUE_CONTROL,
                                        force=torque_commands)
 
@@ -410,9 +488,11 @@ class Ballbot:
             # first "unlock joint" for torque control and simulate friction force, (i.e. force = friction)
             # TODO: Where did this model for friction came from? Since a force is being direction has to be set.
             dyn_friction = abs(JOINT_DYNAMIC_FRICTION*self.arm_vel[i])
+            
             static_friction = ARMS_JOINT_FRICTION[i] if abs(
                 self.arm_vel[i]) < STICTION_VEL_THRESHOLD else 0.0
             friction_force = static_friction + dyn_friction
+            # Way to add damping to the system
             p.setJointMotorControl2(
                 self.robot, self.jointIds[i], p.VELOCITY_CONTROL, targetVelocity=0, force=friction_force)
 
@@ -436,3 +516,71 @@ class Ballbot:
                 self.robot, self.turretJointIds[i], p.TORQUE_CONTROL, force=torque_cmd[i])
         if self._turret_mode is p.TORQUE_CONTROL:
             self.turret_torque = torque_cmd
+
+    def drive_barrett_hands(self, position_cmd_left, position_cmd_right, torque_cmd_left, torque_cmd_right):
+        for i in range(self.nBarrettLeftJoints):
+            # first "unlock joint" for torque control and simulate friction force, (i.e. force = friction)
+            # TODO: Where did this model for friction came from? Since a force is being direction has to be set.
+            dyn_friction = abs(JOINT_DYNAMIC_FRICTION*self.barrett_left_hand_vel[i])
+            static_friction = BARRETT_HAND_JOINT_FRICTION if abs(
+                self.barrett_left_hand_vel[i]) < STICTION_VEL_THRESHOLD else 0.0
+            friction_force = static_friction + dyn_friction
+            # p.setJointMotorControl2(
+            #     self.robot, self.barrett_left_jointIds[i], p.VELOCITY_CONTROL, targetVelocity=0, force=friction_force)
+
+            p.setJointMotorControl2(
+                self.robot, self.barrett_left_jointIds[i], p.VELOCITY_CONTROL, targetVelocity=np.clip(torque_cmd_left[i],-10.,10.), force=10.)
+            
+            # p.setJointMotorControl2(
+            #     self.robot, self.barrett_left_jointIds[i], p.POSITION_CONTROL, targetPosition=position_cmd_left[i], force=10.)
+    
+        for i in range(self.nBarrettRightJoints):
+            # first "unlock joint" for torque control and simulate friction force, (i.e. force = friction)
+            # TODO: Where did this model for friction came from? Since a force is being direction has to be set.
+            dyn_friction = abs(JOINT_DYNAMIC_FRICTION*self.barrett_right_hand_vel[i])
+            static_friction = BARRETT_HAND_JOINT_FRICTION if abs(
+                self.barrett_right_hand_vel[i]) < STICTION_VEL_THRESHOLD else 0.0
+            friction_force = static_friction + dyn_friction
+            # p.setJointMotorControl2(
+            #     self.robot, self.barrett_right_jointIds[i], p.VELOCITY_CONTROL, targetVelocity=0, force=friction_force)
+
+            p.setJointMotorControl2(
+                self.robot, self.barrett_right_jointIds[i], p.VELOCITY_CONTROL, targetVelocity=np.clip(torque_cmd_right[i],-10.,10.), force=10.)
+
+            # p.setJointMotorControl2(
+            #     self.robot, self.barrett_right_jointIds[i], p.POSITION_CONTROL, targetPosition=position_cmd_right[i], force=10.)
+        # print("left: ", np.clip(torque_cmd_left,-1,1))
+        # print("right: ", np.clip(torque_cmd_right,-1,1))
+        
+        if self._barrett_hands_mode is p.TORQUE_CONTROL:
+            self.barrett_left_hand_torque = torque_cmd_left.copy()
+            self.barrett_right_hand_torque = torque_cmd_right.copy()
+            
+    
+    def drive_yaw(self, torque_z):
+        """
+            Applies the torques given in body frame to drive the yaw
+
+            @parameter[in] torque_z     torque (Nm) to be applied around the z-axis in the global frame
+        """
+        # Saturate yaw torques
+        torque_z = np.clip(torque_z, -MAX_YAW_TORQUE_NM, MAX_YAW_TORQUE_NM)
+
+        torque_commands = [0.0, 0.0, torque_z]
+
+        # Rotate torque from WORLD frame to BALL frame
+        torque_commands = self.transformWorldToBallFrame(torque_commands)
+        # print("TorqueBall: ", torque_commands)
+
+        # # unlock motors
+        p.setJointMotorControlMultiDof(self.robot,
+                                       self.ballJointId[0],
+                                       controlMode=p.POSITION_CONTROL,
+                                       targetPosition=[0, 0, 0, 1],
+                                       force=[0, 0, 0])
+
+        # change to torque mode and set desired torques
+        p.setJointMotorControlMultiDof(self.robot,
+                                       self.ballJointId[0],
+                                       controlMode=p.TORQUE_CONTROL,
+                                       force=torque_commands)

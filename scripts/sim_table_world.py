@@ -20,7 +20,7 @@ from robot.definitions import *
 from environments.environments import TableEnv
 
 # Simulation parameters
-LOG_VIDEO = True
+LOG_VIDEO = False
 VIDEO_FILE_NAME = "ballbot_test_station_keep"
 
 if __name__ == "__main__":
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     robot_simulator = RobotSimulator(
         startPos=[0, 0, 0.12], startOrientationEuler=[0, 0, 0])
 
-    test_type = "TEST_STATION_KEEP"
+    test_type = "TEST_STATION_KEEP" # "TEST_BARRETT_HANDS", "TEST_TURRET"
 
     """ Main Loop """
     if test_type == "TEST_STATION_KEEP":
@@ -38,19 +38,21 @@ if __name__ == "__main__":
         
     robot_simulator.ballbot.set_arm_torque_mode()
 
-    env = TableEnv(startPos=[0.0, 1., 0.], startOrientationEuler=[
-                   0., 0., np.radians(0.)])
-    robot_simulator.setup_environment(env)
+    # env = TableEnv(startPos=[0.0, 1., 0.], startOrientationEuler=[
+    #                0., 0., np.radians(0.)])
+    # robot_simulator.setup_environment(env)
 
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
 
-    
+
+    yaw_targets = np.linspace(0.0, 2*3.1415, 2000)
     # while(1):
     from tqdm import trange
-    for i in trange(500):
+    for i in trange(1000):
         if test_type == "TEST_STATION_KEEP":
             robot_simulator.body_controller.set_desired_ball_position(1,1)
+            robot_simulator.body_controller.set_desired_yaw(yaw_targets[i])
         if test_type == "TEST_TURRET":
             if i < 200:
                 robot_simulator.turret_controller.set_desired_angles([0.0,1.57])
@@ -60,6 +62,16 @@ if __name__ == "__main__":
                 robot_simulator.turret_controller.set_desired_angles([2,1.])
             else:
                 robot_simulator.turret_controller.set_desired_angles([-2,1.])
+
+        if test_type == "TEST_BARRETT_HANDS":
+            nJoints = robot_simulator.ballbot.nBarrettLeftJoints
+            left_joint_angles = np.zeros(nJoints)
+            right_joint_angles = np.zeros(nJoints)
+
+            # left_joint_angles[0] = 0.4
+            # import ipdb; ipdb.set_trace()
+            # robot_simulator.barrett_left_hand_controller.set_desired_angles(left_joint_angles)
+            # robot_simulator.barrett_right_hand_controller.set_desired_angles(right_joint_angles)
 
         if USE_ROS:
             robot_simulator.read_ROS_params()

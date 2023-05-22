@@ -42,6 +42,7 @@ class StationKeepingController(object):
         """ Use this function if Station keep in terms of body lean angle """
         self._desired_x_body_angle = math.radians(self._position_controller_XZ.get_pid_output())
         self._desired_y_body_angle = math.radians(self._position_controller_YZ.get_pid_output())
+    
     def get_com_output(self):
         """ Use this function if station keep in terms of com position """
         self._desired_x_com = self._position_controller_XZ.get_pid_output()
@@ -74,3 +75,28 @@ class VelocityController(object):
         self._velocity_controller_XZ = PIDController()
         self._velocity_controller_YZ = PIDController()
 
+class YawController(object):
+    def __init__(self):
+        # desired yaw in global frame
+        self._desired_yaw_angle = 0.0
+        self._position_controller_yaw = PIDController()
+
+    def set_gains(self, kP, kI, kD):
+        self._position_controller_yaw.set_pid_gains(kP, kI, kD)
+
+    def calculate_error_value(self, yaw_pos, yaw_ref, time_period):
+        self._position_controller_yaw.calculate_error_values_continuous_angle(
+            yaw_pos, yaw_ref, time_period)
+
+    def set_error_value(self, yaw_pos_error, yaw_vel_error):
+        self._position_controller_yaw.set_error_values(
+            yaw_pos_error, yaw_vel_error)
+
+    def set_max_torque(self, max_torque):
+        self._position_controller_yaw.set_max_output(max_torque)
+
+    def get_torque_output(self):
+        self.torque_z_nm = - self._position_controller_yaw.get_pid_output()
+
+    def clear_all_error_values(self):
+        self._position_controller_yaw.clear_error_values()

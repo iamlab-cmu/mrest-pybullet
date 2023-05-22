@@ -22,7 +22,7 @@ from environments.environments import TableEnv
 
 # Simulation parameters
 LOG_VIDEO = True
-VIDEO_FILE_NAME = "ballbot_tsc_leftarmonly_controlLeftonly"
+VIDEO_FILE_NAME = "ballbot_tsc_oppositereach"
 
 if __name__ == "__main__":
     # set pybullet environment
@@ -53,11 +53,10 @@ if __name__ == "__main__":
     ballypos2 = np.arange(ball_des1[1],ball_des2[1],(ball_des2[1]-ball_des1[1])/T)
     
     
-    for i in trange(8000):
+    for i in trange(4000):
     # while(True):
-        # import ipdb; ipdb.set_trace()
         # robot_simulator.body_controller.set_desired_ball_position(0.,ballypos0[i])
-        # Read user params
+        # # Read user params
         # if i < T:
         #     robot_simulator.body_controller.set_desired_ball_position(ballxpos0[i],ballypos0[i])
         # elif i >= T and i < 2*T:
@@ -78,9 +77,9 @@ if __name__ == "__main__":
 
         time.sleep(SIMULATION_TIME_STEP_S)
     
-    # if LOG_VIDEO:
-    #     robot_simulator.stop_video_log()
-    #     print("SAVING VIDEO")
+    if LOG_VIDEO:
+        robot_simulator.stop_video_log()
+        print("SAVING VIDEO")
     import ipdb; ipdb.set_trace()
     robot_simulator.update_robot_state(BallState.STATION_KEEP)
     T = 3000

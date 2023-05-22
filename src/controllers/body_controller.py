@@ -1,8 +1,9 @@
 """ Ballbot body controller """
 import math
+import numpy as np
 from robot.definitions import *
 from .balancing_controller import BalancingController, COMBalancingController
-from .outer_loop_controllers import StationKeepingController
+from .outer_loop_controllers import StationKeepingController, YawController
 
 
 class BodyController(object):
@@ -26,7 +27,7 @@ class BodyController(object):
         self.yBallVelocity = 0.0
 
         self.yawAng = 0.0
-        self.yaAngVel = 0.0
+        self.yawAngVel = 0.0
 
         """ Control Variables """
         self.xDesiredCOM = 0.0
@@ -44,6 +45,8 @@ class BodyController(object):
 
         self.xDesiredWorldVelocity = 0.0
         self.yDesiredWorldVelocity = 0.0
+
+        self.yawDesiredAng = 0.0
 
         self.xZeroCOM = 0.0
         self.xZeroShapeCOM = 0.0
@@ -71,6 +74,7 @@ class BodyController(object):
         self._balancing_control = BalancingController()
         self._com_balancing_control = COMBalancingController()
         self._station_keeping_control = StationKeepingController()
+        self._yaw_control = YawController()
 
         self._balancing_control.set_gains(75, 1, 3)
         self._balancing_control.set_max_current(100)
@@ -80,9 +84,14 @@ class BodyController(object):
         # self._station_keeping_control.set_gains(0.15, 0, -0.01, 0.15, 0, -0.01)
         self._station_keeping_control.set_max_com_displacement(0.1)
 
+        self._yaw_control.set_gains(75, 1, 3)
+        self._yaw_control.set_max_torque(100)
+
         # Start status for each of the controllers
         self._balancing_started = False
         self._station_keeping_started = False
+
+        self._use_world_frame = False
 
     def set_data(self, time_period, body_orient_euler, ball_velocity):
         self._actual_period = time_period
@@ -142,22 +151,46 @@ class BodyController(object):
         yDesiredCOM = self.yBallPosition + yDesiredBodyCOM
         self.set_desired_com_position(xDesiredCOM, yDesiredCOM)
 
-    def set_desired_angles_odom_frame(self, desiredXAngle, desiredYAngle):
+    def set_desired_body_angles_arms(self, xAng_left, yAng_left, xAng_right, yAng_right):
+        """
+            set desired body angles [rad]
+
+            @param[in] desiredXAngle body angle in body frame [rad]
+            @param[in] desiredYAngle body angle in body frame [rad]
+        """
+
+        # convert to desired com position
+        yDesiredBodyCOM_left = BALLBOT_COM_M * math.sin(xAng_left)
+        xDesiredBodyCOM_left = BALLBOT_COM_M * math.sin(yAng_left)
+
+        # convert to desired com position
+        yDesiredBodyCOM_right = BALLBOT_COM_M * math.sin(xAng_right)
+        xDesiredBodyCOM_right = BALLBOT_COM_M * math.sin(yAng_right)
+
+        # TODO: eventually want to set COM pos in body frame
+        xDesiredCOM = self.xBallPosition + xDesiredBodyCOM_left + xDesiredBodyCOM_right
+        yDesiredCOM = self.yBallPosition + yDesiredBodyCOM_left + yDesiredBodyCOM_right
+
+        # print(f"xDesiredCOM:{xDesiredCOM} yDesiredCOM:{yDesiredCOM}")
+
+        self.set_desired_com_position(xDesiredCOM, yDesiredCOM)
+
+    def set_desired_angles_odom_frame(self, desiredXAngle, desiredYAngle=0.0):
         # TODO: Implement rotation onces yaw DOF is added
-        #heading = self.yawAng
-        #bodyXAngleDesired = math.cos(heading) * desiredXAngle + math.sin(heading) * desiredYangle
-        #bodyYAngleDesired = -math.sin(heading) * desiredXAngle + math.cos(heading) * desiredYangle
-        bodyXAngleDesired = desiredXAngle
-        bodyYAngleDesired = desiredYAngle
+        heading = self.yawAng
+        bodyXAngleDesired = math.cos(heading) * desiredXAngle + math.sin(heading) * desiredYAngle
+        bodyYAngleDesired = -math.sin(heading) * desiredXAngle + math.cos(heading) * desiredYAngle
+        # bodyXAngleDesired = desiredXAngle
+        # bodyYAngleDesired = desiredYAngle
         self.set_desired_body_angles(bodyXAngleDesired, bodyYAngleDesired)
 
     def set_desired_velocity_odom_frame(self, desiredXVel, desiredYVel):
         xDesiredWorldVelocity = desiredXVel
         yDesiredWorldVelocity = desiredYVel
 
-        #heading = self.yawAng
-        #xDesiredBallVelocity = math.cos(heading) * desiredXVel + math.sin(heading) * desiredYVel
-        #yDesiredBallVelocity = -math.sin(heading) * desiredXVel + math.cos(heading) * desiredYVel
+        # heading = self.yawAng
+        # xDesiredBallVelocity = math.cos(heading) * desiredXVel + math.sin(heading) * desiredYVel
+        # yDesiredBallVelocity = -math.sin(heading) * desiredXVel + math.cos(heading) * desiredYVel
         self.xDesiredBallVelocity = xDesiredWorldVelocity
         self.yDesiredBallVelocity = yDesiredWorldVelocity
 
@@ -241,10 +274,17 @@ class BodyController(object):
             self._station_keeping_started = True
 
         # Position error
-        # TODO: add if statement to specificy in which frame, currently only in Body Frame
+        # if statement to specificy in which frame
+
+        if self._use_world_frame:
+            rot_world_to_body = np.array([[math.cos(self.yawAng), math.sin(self.yawAng)], [-math.sin(self.yawAng), math.cos(self.yawAng)]])
+            desiredPosBody = rot_world_to_body@np.array([self.xDesiredWorldPosition, self.yDesiredWorldPosition])
+            self.set_desired_ball_position(desiredPosBody[0], desiredPosBody[1])
+        # otherwise body frame is used
+
         xPosErr = self.xDesiredBallPosition - self.xBallPosition
         yPosErr = self.yDesiredBallPosition - self.yBallPosition
-
+        print(f'desired ball position: {self.xDesiredBallPosition}, {self.yDesiredBallPosition}')
         # Velocity error
         xVelErr = 0.0 - self.xBallVelocity
         yVelErr = 0.0 - self.yBallVelocity
@@ -266,6 +306,11 @@ class BodyController(object):
         self.set_desired_com_position(xComPosStationKeep, yComPosStationKeep)
         # self.set_desired_body_angles(self._station_keeping_control._desired_x_body_angle,
         #    self._station_keeping_control._desired_y_body_angle)
+    
+    def set_desired_yaw(self, yawDesiredAng):
+        # TODO: angle wrapping
+        # set desired yaw in global frame
+        self.yawDesiredAng = yawDesiredAng
 
     def clear_balancing_error_values(self):
         self._balancing_control.clear_all_error_values()
@@ -274,3 +319,8 @@ class BodyController(object):
     def clear_station_keeping_error_values(self):
         self._station_keeping_control.clear_all_error_values()
         self._station_keeping_started = False
+
+    def run_yaw_control(self, time_period_s):
+        self._yaw_control.calculate_error_value(self.yawAng, self.yawDesiredAng, time_period_s)
+        self._yaw_control.get_torque_output()
+        self.zBallTorque = self._yaw_control.torque_z_nm

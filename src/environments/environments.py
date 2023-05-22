@@ -26,19 +26,35 @@ class TableEnv(object):
 
         startOrientation = p.getQuaternionFromEuler(startOrientationEuler)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        self.table = p.loadURDF("table/table.urdf", startPos, startOrientation)
+        # self.table = p.loadURDF("table/table.urdf", startPos, startOrientation)
+        self.table = p.loadURDF(URDF_FOLDER_NAME + "table/table.urdf", startPos, startOrientation)
 
         colors = Colors()
-        boxStartPos = np.array(startPos) + np.array([-0.3, 0., 0.775])
-        self.box1 = p.loadURDF(
-            URDF_FOLDER_NAME + "cardboard_box/box.urdf", boxStartPos, startOrientation)
-        p.changeVisualShape(self.box1, -1, rgbaColor=colors.red)
+        # boxStartPos = np.array(startPos) + np.array([-0.3, 0., 0.775])
+        # self.box1 = p.loadURDF(
+        #     URDF_FOLDER_NAME + "cardboard_box/box.urdf", boxStartPos, startOrientation)
+        # p.changeVisualShape(self.box1, -1, rgbaColor=colors.red)
 
-        boxStartPos = np.array(boxStartPos) + np.array([0., 0., 0.3])
-        self.box2 = p.loadURDF(
-            URDF_FOLDER_NAME + "cardboard_box/box.urdf", boxStartPos, startOrientation)
-        p.changeVisualShape(self.box2, -1, rgbaColor=colors.blue)
+        # boxStartPos = np.array(boxStartPos) + np.array([0., 0., 0.3])
+        # self.box2 = p.loadURDF(
+        #     URDF_FOLDER_NAME + "cardboard_box/box.urdf", boxStartPos, startOrientation)
+        # p.changeVisualShape(self.box2, -1, rgbaColor=colors.blue)
 
+        # carStartPos = np.array(startPos) + np.array([-0.3, 0., 0.775])
+        # carId = p.loadURDF('racecar/racecar.urdf', basePosition=carStartPos)
+
+        mugStartPos = np.array(startPos) + np.array([-0.4, -0., 0.95])
+        mugId = p.loadURDF('objects/mug.urdf', basePosition=mugStartPos)
+        duckStartPos = np.array(startPos) + np.array([0.4, -0., 0.95])
+        duckId = p.loadURDF('duck_vhacd.urdf', basePosition=duckStartPos)
+        cubeStartPos = np.array(startPos) + np.array([-0.6, -0.4, 0.95])
+        cubeId = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/cube.urdf", cubeStartPos, startOrientation)
+        p.changeVisualShape(cubeId, -1, rgbaColor=colors.blue)
+
+        cubeStartPos = np.array(startPos) + np.array([0.2, -0.4, 0.95])
+        self.cubeId2 = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/cube.urdf", cubeStartPos, startOrientation)
+        p.changeVisualShape(self.cubeId2, -1, rgbaColor=colors.red)
+        p.changeDynamics(self.cubeId2, -1, lateralFriction=1.7)
 
 class KivaShelf(object):
     def __init__(self, startPos=[0., 0., 0.], startOrientationEuler=[0., 0., 0.]):

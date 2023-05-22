@@ -44,11 +44,26 @@ class PIDController(object):
         if self._antiwindup:
             self._integral_error = np.clip(self._integral_error, -self._max_integral_error,self._max_integral_error)
     
+    def calculate_error_values_continuous_angle(self, value, reference, time_period):
+        error = reference - value
+        if error > math.pi:
+            error = error - 2.0*math.pi
+        if error < -math.pi:
+            err = err + 2.0*math.pi
+
+        self._derivative_error = (error - self._error_val)/time_period
+        self._error_val = error
+        self._integral_error += self._error_val * time_period
+
+        if self._antiwindup:
+            self._integral_error = np.clip(
+                self._integral_error, -self._max_integral_error, self._max_integral_error)
+
     def set_error_values(self, error, derivate_error):
         self._error_val = error
         self._integral_error += self._error_val/100
         self._derivative_error = derivate_error
-
+        
         if self._antiwindup:
             self._integral_error = np.clip(self._integral_error, -self._max_integral_error,self._max_integral_error)
     
@@ -67,6 +82,5 @@ class PIDController(object):
                 output = self._max_output
             else:
                 output = -self._max_output
-
         return output
     

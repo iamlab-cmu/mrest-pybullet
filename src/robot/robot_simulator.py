@@ -22,6 +22,9 @@ from robot.ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
 from controllers.arm_controller import ArmController
 from controllers.turret_controller import TurretController
+from controllers.barrett_left_hand_controller import BarrettLeftHandController
+from controllers.barrett_right_hand_controller import BarrettRightHandController
+
 
 # Simulation parameters
 # TODO: simulation time step has to be set to 1/240 as it is the default pybullet time step
@@ -72,9 +75,16 @@ class BallState(Enum):
 
 
 class RobotSimulator(object):
-    def __init__(self, startPos=[0.0, 0.0, 0.12], startOrientationEuler=[0, 0, 0]):
+    def __init__(self, 
+            startPos=[0.0, 0.0, 0.12], 
+            startOrientationEuler=[0, 0, 0], 
+            init_arm_joint_position=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
+            init_left_gripper_state= 'close',
+            init_right_gripper_state='close',
+            ):
 
-        self.use_arm_olc = True
+        self.use_arm_olc = False
+        self.use_arm_olc_com = False
         # set pybullet environment
         self.physicsClient = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
@@ -90,19 +100,27 @@ class RobotSimulator(object):
         self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME,
                                    startPos=startPos, startOrientationEuler=startOrientationEuler)
 
-        # TODO make a cleaner version for setting initial state pose.
-        # joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
-        #                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
-        joint_positions = [0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0,
-                           0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0,
-                           0.0, 0.0, 0.0, 0.0, 0.0]       
-
+        joint_positions = np.zeros(self.ballbot.nJoints)
         # joint ID 3 is turret pan , joint ID 4 is turret tilt         
         self.ballbot.set_initial_config(joint_positions)
-        arm_joint_position = [0, 0, 0, 0.0, 0, 0, 0, 0, 0, 0, 0.0, 0, 0, 0]
-        self.ballbot.set_arms_intial_config(arm_joint_position)
+
+        self.ballbot.set_arms_intial_config(init_arm_joint_position)
+
         turret_joint_position = [0., 0.] # ['turret_pan', 'turret_tilt']
         self.ballbot.set_turret_intial_config(turret_joint_position)
+
+        if self.ballbot.hand_type == 'barrett':
+            if init_left_gripper_state == 'open':
+                init_barrett_left_joint_positions = np.zeros(self.ballbot.nBarrettLeftJoints)
+            else:
+                init_barrett_left_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
+            self.ballbot.set_barrett_left_hand_intial_config(init_barrett_left_joint_positions)
+
+            if init_right_gripper_state == 'open':
+                init_barrett_right_joint_positions = np.zeros(self.ballbot.nBarrettRightJoints)
+            else:
+                init_barrett_right_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
+            self.ballbot.set_barrett_right_hand_intial_config(init_barrett_right_joint_positions)
 
         self.ballbot_state = BallState.BALANCE
         if PRINT_MODEL_INFO:
@@ -111,20 +129,29 @@ class RobotSimulator(object):
             self.ballbot.print_link_info()
 
         # By default have an empty environment
-        self.environemnt = None
+        self.environment = None
 
         # Control Variables
         self.olcCmdXAng = 0.0
         self.olcCmdYAng = 0.0
         self.olcCmdXVel = 0.0
         self.olcCmdYVel = 0.0
-        self.rarm_joint_command = [0, 0, 0, 0, 0, 0, 0]
-        self.larm_joint_command = [0, 0, 0, 0, 0, 0, 0]
-        self.rarm_torque_command = [0, 0, 0, 0, 0, 0, 0]
-        self.larm_torque_command = [0, 0, 0, 0, 0, 0, 0]
+        self.rarm_joint_command = init_arm_joint_position[:7]
+        self.larm_joint_command = init_arm_joint_position[7:]
+        self.rarm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
+        self.larm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
+
+        self.wrench_right = np.zeros(6)
+        self.wrench_left = np.zeros(6)
 
         self.turret_joint_command = [0, 0] # pan, tilt
         self.turret_torque_command = [0, 0] # pan, tilt
+
+        if self.ballbot.hand_type == 'barrett':
+            self.barrett_left_hand_joint_command = init_barrett_left_joint_positions.copy()
+            self.barrett_right_hand_joint_command = init_barrett_right_joint_positions.copy()
+            self.barrett_left_hand_torque_command = np.zeros(self.ballbot.nBarrettLeftJoints)
+            self.barrett_right_hand_torque_command = np.zeros(self.ballbot.nBarrettRightJoints)
 
         self.rarm_ts_command = [0, 0, 0]
         self.larm_ts_command = [0, 0, 0]
@@ -151,10 +178,10 @@ class RobotSimulator(object):
                 self.robot_static, j, linearDamping=0, angularDamping=0)
         
         # Debugging: plotting EE goal location
-        p.addUserDebugLine([0.3, 0.6, 1.2],
-                           [0.3, 0.6, 1.2+0.1], [0,1,0], lineWidth=20,lifeTime=1000)
-        p.addUserDebugLine([-0.3, -0.6, 1.2],
-                           [-0.3, -0.6, 1.2+0.1], [0,0,1], lineWidth=20,lifeTime=1000)
+        # p.addUserDebugLine([0.3, 0.6, 1.2],
+        #                    [0.3, 0.6, 1.2+0.1], [0,1,0], lineWidth=20,lifeTime=1000)
+        # p.addUserDebugLine([-0.3, -0.6, 1.2],
+        #                    [-0.3, -0.6, 1.2+0.1], [0,0,1], lineWidth=20,lifeTime=1000)
 
     def setup_gui(self):
         # set user debug parameters
@@ -269,7 +296,7 @@ class RobotSimulator(object):
         print("ROS communication initialized")
 
     def setup_environment(self, env):
-        self.environemnt = env
+        self.environment = env
 
     def start_video_log(self, video_file_name):
         # augment filename with date and time
@@ -297,10 +324,10 @@ class RobotSimulator(object):
 
     def update_olc_cmd(self, msg):
         if self.use_arm_olc:
-            self.olc_command_ROS['xAng'] = (self.olc_command_ROS['xAng_right']+self.olc_command_ROS['xAng_left'])/1
-            self.olc_command_ROS['yAng'] = (self.olc_command_ROS['yAng_right']+self.olc_command_ROS['yAng_left'])/1
-            self.olc_command_ROS['xVel'] = (self.olc_command_ROS['xVel_right']+self.olc_command_ROS['xVel_left'])/1
-            self.olc_command_ROS['yVel'] = (self.olc_command_ROS['yVel_right']+self.olc_command_ROS['yVel_left'])/1
+            self.olc_command_ROS['xAng'] = (self.olc_command_ROS['xAng_right']+self.olc_command_ROS['xAng_left'])/1.
+            self.olc_command_ROS['yAng'] = (self.olc_command_ROS['yAng_right']+self.olc_command_ROS['yAng_left'])/1.
+            self.olc_command_ROS['xVel'] = (self.olc_command_ROS['xVel_right']+self.olc_command_ROS['xVel_left'])/1.
+            self.olc_command_ROS['yVel'] = (self.olc_command_ROS['yVel_right']+self.olc_command_ROS['yVel_left'])/1.
         else:
             self.olc_command_ROS['xAng'] = msg.yAng
             self.olc_command_ROS['yAng'] = msg.xAng
@@ -338,15 +365,29 @@ class RobotSimulator(object):
 
     def update_rarm_effort_cmd(self, msg):
         self.rarm_torque_command = msg.data
+        print('Arm message received:', self.rarm_torque_command)
 
     def update_larm_effort_cmd(self, msg):
         self.larm_torque_command = msg.data
+        print('Arm message received:', self.larm_torque_command)
 
     def update_turret_cmd(self, msg):
         self.turret_joint_command = msg.position
 
     def update_turret_effort_cmd(self, msg):
         self.turret_torque_command = msg.data
+
+    def update_barrett_left_hand_cmd(self, msg):
+        self.barrett_left_hand_joint_command = msg.position
+
+    def update_barrett_left_hand_effort_cmd(self, msg):
+        self.barrett_left_hand_torque_command = msg.data
+    
+    def update_barrett_right_hand_cmd(self, msg):
+        self.barrett_right_hand_joint_command = msg.position
+
+    def update_barrett_right_hand_effort_cmd(self, msg):
+        self.barrett_right_hand_torque_command = msg.data
     
     def update_external_wrench_right_cmd(self, msg):
         wrench_cmd = [msg.force.x, msg.force.y, msg.force.z, 
@@ -367,6 +408,9 @@ class RobotSimulator(object):
         self.larm_controller = ArmController()
         self.arm_joint_command = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.turret_controller = TurretController()
+        if self.ballbot.hand_type == 'barrett':
+            self.barrett_left_hand_controller = BarrettLeftHandController(self.ballbot.nBarrettLeftJoints)
+            self.barrett_right_hand_controller = BarrettRightHandController(self.ballbot.nBarrettRightJoints)
 
     def update_robot_state(self, state):
         if state == BallState.STATIC:
@@ -396,7 +440,7 @@ class RobotSimulator(object):
         if ENABLE_TURRET_CAMERA:
             self.cameraFeedback = self.ballbot.update_turretCamera()
         
-        self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
+        # self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
         self.ballbot.update_robot_state()
@@ -424,12 +468,20 @@ class RobotSimulator(object):
             self.body_controller.clear_station_keeping_error_values()
 
         # Outer Loop controller
-        if self.ballbot_state == BallState.OLC:
+        if self.ballbot_state == BallState.OLC and not self.use_arm_olc_com:
             self.body_controller.set_desired_angles_odom_frame(
                 self.olcCmdXAng, self.olcCmdYAng)
+            # print("olcCmdXAng",self.olcCmdXAng)
+            # print("olcCmdYAng",self.olcCmdYAng)
             self.body_controller.set_desired_velocity_odom_frame(
                 self.olcCmdXVel, self.olcCmdYVel)
-
+        elif self.ballbot_state == BallState.OLC and self.use_arm_olc_com:
+            self.body_controller.set_desired_body_angles_arms(
+                self.olc_command_ROS['xAng_left'], self.olc_command_ROS['yAng_left'],
+                self.olc_command_ROS['xAng_right'], self.olc_command_ROS['yAng_right'])
+            self.body_controller.set_desired_velocity_odom_frame(
+                self.olcCmdXVel, self.olcCmdYVel)
+        
         # Balancing controller
         if (self.ballbot_state == BallState.BALANCE or self.ballbot_state == BallState.OLC
                 or self.ballbot_state == BallState.STATION_KEEP or self.ballbot_state == BallState.VEL_CONTROL):
@@ -448,11 +500,15 @@ class RobotSimulator(object):
         else:
             self.body_controller.clear_balancing_error_values()
 
+        # Run yaw controller
+        self.body_controller.run_yaw_control(SIMULATION_TIME_STEP_S)
+
         # Set torque commands
         current_yy = -self.body_controller.xBallCurrent
         current_xx = self.body_controller.yBallCurrent
         torque_yy = self.body_controller.yBallTorque
         torque_xx = self.body_controller.xBallTorque
+        torque_zz = self.body_controller.zBallTorque
 
         # p.addUserDebugLine([self.olcCmdXAng, self.olcCmdYAng,0.0],[self.olcCmdXAng, self.olcCmdYAng,0.1], [1,0,0], lineWidth=20,lifeTime=0.1)
         # p.addUserDebugLine([self.arm_ts_command[0],self.arm_ts_command[1],self.arm_ts_command[2]],
@@ -478,7 +534,7 @@ class RobotSimulator(object):
             self.rarm_controller.set_gravity_torque(self.gravity_torques[0:7])
             self.rarm_controller.update(SIMULATION_TIME_STEP_S)
             rarm_torques = self.rarm_controller.armTorques
-
+            
             self.larm_controller.update_current_state(
                 self.ballbot.arm_pos[7:], self.ballbot.arm_vel[7:])
             self.larm_controller.set_desired_angles(self.arm_joint_command[7:])
@@ -488,7 +544,8 @@ class RobotSimulator(object):
         else:
             rarm_torques = self.rarm_torque_command
             larm_torques = self.larm_torque_command
-
+            # print('larm_torques: ', larm_torques)
+            # print('rarm_torques: ', rarm_torques)
         """ Turret Commands """
         if self.ballbot._turret_mode == p.POSITION_CONTROL:
 
@@ -500,14 +557,43 @@ class RobotSimulator(object):
             turret_torques = self.turret_controller.turretTorques
         else:
             turret_torques = self.turret_torque_command
+        
+        """ Barrett Hand Commands """
+        if self.ballbot.hand_type == 'barrett':
+            if self.ballbot._barrett_hands_mode == p.POSITION_CONTROL:
+
+                self.barrett_left_hand_controller.update_current_state(
+                    self.ballbot.barrett_left_hand_pos, self.ballbot.barrett_left_hand_vel)
+                self.barrett_right_hand_controller.update_current_state(
+                    self.ballbot.barrett_right_hand_pos, self.ballbot.barrett_right_hand_vel)
+                
+                self.barrett_left_hand_controller.set_desired_angles(
+                    self.barrett_left_hand_joint_command)
+                self.barrett_right_hand_controller.set_desired_angles(
+                    self.barrett_right_hand_joint_command)
+
+                self.barrett_left_hand_controller.update(SIMULATION_TIME_STEP_S)
+                self.barrett_right_hand_controller.update(SIMULATION_TIME_STEP_S)
+
+                barrett_left_hand_torques = self.barrett_left_hand_controller.barrettLeftHandTorques
+                barrett_right_hand_torques = self.barrett_right_hand_controller.barrettRightHandTorques
+            else:
+                barrett_left_hand_torques = self.barrett_left_hand_torque_command
+                barrett_right_hand_torques = self.barrett_right_hand_torque_command
 
         # Apply torque to robot
         self.ballbot.drive_arms(self.arm_joint_command, np.concatenate(
             (np.array(rarm_torques), np.array(larm_torques))))
         self.ballbot.drive_turret(self.turret_joint_command, 
             np.array(turret_torques))
+        if self.ballbot.hand_type == 'barrett':
+            self.ballbot.drive_barrett_hands(self.barrett_left_hand_joint_command, self.barrett_right_hand_joint_command, 
+                                np.array(barrett_left_hand_torques), np.array(barrett_right_hand_torques))
+            
         self.ballbot.drive_imbd(torque_xx, torque_yy)
         # self.ballbot.drive_imbd(current_xx,current_yy)
+        self.ballbot.drive_yaw(torque_zz)
+        
         contacts = p.getContactPoints(self.ballbot.robot)
         if DRAW_CONTACT_FORCES:
             p.removeAllUserDebugItems()
@@ -674,6 +760,7 @@ class RobotSimulator(object):
     def calculate_gravity_torques(self):
         # get gravity torque for current arm state from parallel simulation
         for i in range(self.ballbot.nArmJoints):
+            pass
             # self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],
             #   p.POSITION_CONTROL,self.arm_joint_command[i], force = 5 * 240.)
             self.physicsClientStatic.setJointMotorControl2(self.robot_static, self.ballbot.jointIds[i],

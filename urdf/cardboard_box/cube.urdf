@@ -1,0 +1,23 @@
+
+<robot name="cardboard_box">
+    <material name="Blue">
+        <color rgba="0 0.5 1 1.0"/>
+    </material>
+
+    <link name="link">
+      <inertial>
+        <mass value="0.5"/>
+        <inertia  ixx = "0.001933334" ixy = "0" ixz ="0" iyy = "0.001933334" iyz ="0" izz = "0.00053333"/>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <box size="0.08 0.08 0.2"/>
+        </geometry>
+      </collision>
+      <visual>
+        <geometry>
+          <box size="0.08 0.08 0.2"/>
+        </geometry>
+      </visual>
+    </link>
+</robot> 
