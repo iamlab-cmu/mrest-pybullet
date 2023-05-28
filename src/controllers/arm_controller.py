@@ -3,6 +3,8 @@ import numpy as np
 import PyKDL as kdl
 import kdl_parser_py.urdf as kdl_parser
 from robot.definitions import *
+import quaternion
+from .utils import *
 
 import rospkg
 rospack = rospkg.RosPack()
@@ -49,13 +51,17 @@ class ArmController(object):
 
 class TaskSpaceArmController(object):
     def __init__(self, arm='right'):
-        # coord frame of shoulder joint : x - up, z - out (both arms);
-        # y - back (right arm), y - front (left arm)
-        self.desiredVel = np.array([[0.0, 0.0, 0.0]])
-        self.desiredAcc = np.array([[0.0, 0.0, 0.0]])
+        """
+        Task space control for 7-dof ballbot arms
+        Tasks as input position and orientation in shoulder frame
+        """
+        self.arm = arm
+        self.desiredVel = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+        self.desiredAcc = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
         # TODO tune gains
-        self.set_gains([[2000.0, 2000.0, 2000], [100.0, 100.0, 100.0]])
+        self.set_gains([[2000.0, 2000.0, 2000, 10., 10., 10.],
+                        [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]])
         URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
         if arm == 'right':
             (status, self.tree) = kdl_parser.treeFromFile(PACKAGE_WS_PATH + URDF_NAME)
@@ -88,9 +94,9 @@ class TaskSpaceArmController(object):
         self.Kp = np.diag(gains[0])
         self.Kd = np.diag(gains[1])
 
-    def set_desired_pose(self, pos, quat): # input is desired pose in world frame
+    def set_desired_pose(self, pos, quat): # input is desired pose in shoulder frame
         self.desiredPos = np.array([pos])
-        self.desiredQuat = np.array([quat])
+        self.desiredQuat = quat
 
     def set_desired_vel(self, vel):
         self.desiredVel = np.array([vel])
@@ -104,23 +110,22 @@ class TaskSpaceArmController(object):
     def update_current_state(self, qCurrent, qdotCurrent):
         self.currentAngles = np.array([qCurrent])
         self.currentAngleVel = np.array([qdotCurrent])
+        qCurrent = np.append(qCurrent,0.) # Hack to make sure the input is of length 8 and not 7
         self.compute_J(qCurrent, qdotCurrent)
         self.compute_FK(qCurrent, self.num_joints)
 
     def update(self, time_period_s):
-        # PosErr = self.desiredAngles-self.currentAngles
-        # VelErr = self.desiredAngleVel-self.currentAngleVel
 
-        x_err = self.desiredPos - self.currPos
-        dx_err = self.desiredVel - self.currVel[0, 0:3]
-        ddx_des = self.desiredAcc
-        # control law
-        # TODO debug
-        torque_feedforward = self.J.T @ (self.desiredAcc.T) + \
-            kdl_to_vec(self.C)
+        pos_err = self.desiredPos - self.currPos
+        # pos_err = np.zeros(3)
+        rot_err = angle_axis_between_quats(self.currQuat, self.desiredQuat)
+        rot_err = np.zeros(3)
+        x_err = np.append(pos_err.flatten(), rot_err).reshape(1,6)
+        dx_err = self.desiredVel - self.currVel
+        torque_feedforward = self.J.T @ (self.desiredAcc.T) + kdl_to_vec(self.C)[:7].reshape(7,1)
 
         tau = self.J.T @ (self.Kp @ x_err.T + self.Kd @ dx_err.T)
-        self.armTorques = np.array(tau.T).flatten()
+        self.armTorques = np.array(tau.T).flatten() 
 
     def compute_J(self, q, dq):
         J = kdl.Jacobian(self.num_joints)
@@ -128,14 +133,15 @@ class TaskSpaceArmController(object):
         theta_dot = joint_list_to_kdl(dq)
         self.jacobian_solver.JntToJac(
             theta, J)
-        # only consider positiion jacobian without angle
-        self.J = kdl_to_mat(J)[0:3, :]
+        
+        self.J = kdl_to_mat(J)[:,:7]
         # print('J: ', self.J)
         self.dynamic_param_solver.JntToMass(theta, self.M)
         self.dynamic_param_solver.JntToCoriolis(theta, theta_dot, self.C)
 
     def compute_FK(self, q, link_number):
         endeffec_frame = kdl.Frame()
+        
         kinematics_status = self.fk_solver.JntToCart(joint_list_to_kdl(q),
                                                      endeffec_frame,
                                                      link_number)
@@ -147,11 +153,10 @@ class TaskSpaceArmController(object):
                                     [M[2, 0], M[2, 1], M[2, 2], p.z()],
                                     [0,      0,      0,     1]])
             self.currPos = np.array([p.x(), p.y(), p.z()])
+            self.currQuat = quaternion.from_rotation_matrix(self.currPose[:3,:3])
         else:
             print('error in fk solver')
-        self.currVel = np.array((self.J@self.currentAngleVel.T).T)
-        # print('curr pos: ', p.x(), ' ', p.y(), ' ', p.z())
-
+        self.currVel = np.array((self.J@self.currentAngleVel.T).T) # shape (1,6)
 
 def joint_list_to_kdl(q):
     if q is None:

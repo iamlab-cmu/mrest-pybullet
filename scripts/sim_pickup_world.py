@@ -6,13 +6,16 @@ from datetime import datetime
 import numpy as np
 from enum import Enum
 from tqdm import trange
+import quaternion
 
-from robot.robot_simulator import *
+from robot.robot_simulator_pickup_env import *
 from robot.definitions import *
 from environments.environments import TableEnv
 from skills.arm_skills import GotoJointPosition, GotoTaskSpacePose
+from skills.composite_skills import *
 from skills.gripper_skills import OpenGripper, CloseGripper
 from skills.body_skills import GotoBallPosition
+from omegaconf import OmegaConf
 
 # Simulation parameters
 LOG_VIDEO = False
@@ -20,33 +23,35 @@ VIDEO_FILE_NAME = "ballbot_pickup_task"
 
 if __name__ == "__main__":
     # set pybullet environment
-    # init_arm_joint_position = np.array([0.,0.,0.,0.9, 0., 0.,0.,0.,0.,0.,-0.9,0.,0.,0.])
-    # init_arm_joint_position = np.array([0.9,0.,0.,0., 0., 0.,0.,-0.9,0.,0.,-0.,0.,0.,0.])
-    init_arm_joint_position = np.array([0.,0.,0.,0.0,0.,0.,0.,0.,0.,0.,-0.0,0.,0.,0.])
-    robot_simulator = RobotSimulator(
-        startPos=[0, 0., 0.106], startOrientationEuler=[0, 0, 0], 
-        init_arm_joint_position=init_arm_joint_position,
-        init_left_gripper_state= 'close',
-        init_right_gripper_state='open',
-        )
-        
-    robot_simulator.ballbot.set_arm_torque_mode()
-
-    env = TableEnv(startPos=[0.0, 1.3, 0.], startOrientationEuler=[
-                   0., 0., np.radians(0.)])
-    robot_simulator.setup_environment(env)
+    env_cfg = OmegaConf.load('/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/src/config/envs/ballbot_pickup_env.yaml')
+    robot_simulator = RobotSimulatorPickup(env_cfg=env_cfg)
 
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
     
-    robot_simulator.ballbot.update_robot_state()
-    
+    ## ========== Test initial state stability ==============
+    # for i in trange(800):
+    #     robot_simulator.step()
+    #     p.stepSimulation()
+    #     time.sleep(SIMULATION_TIME_STEP_S)
+
+    ## ========== Test task space controller ==============
     # T = 5 #seconds
     # left_ee_frame_info = p.getLinkState(robot_simulator.ballbot.robot, robot_simulator.ballbot.linkIds['toolL'])
     # right_ee_frame_info = p.getLinkState(robot_simulator.ballbot.robot, robot_simulator.ballbot.linkIds['toolR'])
-    # target_left_pose = np.array(left_ee_frame_info[0]) + np.array([0.0, 1.5, 0.2])
-    # target_right_pose = np.array(right_ee_frame_info[0]) + np.array([1.0, 1.5, 0.2])
-    # skill = GotoTaskSpacePose(robot_simulator, target_left_pose, target_right_pose, T, arms='left', enable_base=True)
+
+    # target_left_pos = np.array(left_ee_frame_info[0]) + np.array([0.0, 1.5, 0.2])
+    # target_left_quat = quaternion.as_quat_array([0.50829406408023, -0.491436150946075, 0.492614818619556, 0.50740348288175]) # format = 'wxyz'
+
+    # target_right_pos = np.array(right_ee_frame_info[0]) + np.array([0.0, 1.5, 0.2])
+    # target_right_quat = quaternion.as_quat_array([0.50829406408023, -0.491436150946075, 0.492614818619556, 0.50740348288175]) # format = 'wxyz'
+    
+    # skill = GotoTaskSpacePose(robot_simulator, 
+    #                           target_left_pos, 
+    #                           target_left_quat,
+    #                           target_right_pos, 
+    #                           target_right_quat,
+    #                           T, arms='both', enable_base=True)
     # skill.execute()
 
     # T = 3 #seconds
@@ -66,45 +71,13 @@ if __name__ == "__main__":
     # skill.execute()
 
 
+    ## ============= Pickup object using task space control ===================
+    for i in range(1):
+        robot_simulator.reset()
+        skill = PickUpBlockSkill(robot_simulator, img_save_freq=24)
+        skill.execute()
 
-    # Pickup object using task space control
-
-    # Reach object
-    for link_name in BARRETT_RIGHT_LINK_NAMES:
-        p.changeDynamics(robot_simulator.ballbot.robot, robot_simulator.ballbot.linkIds[link_name], lateralFriction=1.7)
-
-    T = 15 # seconds
-    cube_pos, cube_quat = p.getBasePositionAndOrientation(robot_simulator.environment.cubeId2)
-    cube_pos = np.array(cube_pos)
-    cube_pos[2] = cube_pos[2] + 0.03
-    skill = GotoTaskSpacePose(robot_simulator, [], np.array(cube_pos), T, arms='right', enable_base=True)
-    skill.execute()
-    
-    # Close gripper
-    T = 8 #seconds  
-    skill = CloseGripper(robot_simulator, T, hands='right')
-    skill.execute()
-
-    # # Create fixed link between gripper and object
-    # cube_pos, cube_quat = p.getBasePositionAndOrientation(robot_simulator.environment.cubeId2)
-    # constraint_id = p.createConstraint(robot_simulator.ballbot.robot,
-    #                                 robot_simulator.ballbot.linkIds['R_bh_base_link'], 
-    #                                 robot_simulator.environment.cubeId2,
-    #                                 -1,
-    #                                 p.JOINT_FIXED,
-    #                                 jointAxis=[0, 0, 1],
-    #                                 parentFramePosition=[0, 0, 0],
-    #                                 childFramePosition=[0, 0, 0])
-    # p.changeConstraint(constraint_id, maxForce=100,erp=0.2)
-
-    T = 5 # seconds
-    cube_pos, cube_quat = p.getBasePositionAndOrientation(robot_simulator.environment.cubeId2)
-    cube_pos = np.array(cube_pos)
-    cube_pos[2] = cube_pos[2] + 0.2
-    skill = GotoTaskSpacePose(robot_simulator, [], np.array(cube_pos), T, arms='right', enable_base=True)
-    skill.execute()
-
-    # # Move near table using station keeping control
+    ## ================== Move near table using station keeping control =====================
     # T = 5 #seconds
     # steps = int(T/SIMULATION_TIME_STEP_S)
     # ball_des = [0.0,0.0]
@@ -129,7 +102,7 @@ if __name__ == "__main__":
 
     #     time.sleep(SIMULATION_TIME_STEP_S)
 
-    # # Use joint space position control to move arms
+    ## ======================== Use joint space position control to move arms ==========================
     # T = 5 #seconds
     # steps = int(T/SIMULATION_TIME_STEP_S)
     # robot_simulator.ballbot.set_arm_position_mode()
@@ -150,7 +123,7 @@ if __name__ == "__main__":
 
     #     time.sleep(SIMULATION_TIME_STEP_S)
 
-    # # Use joint space position control to move gripper
+    ## ======================== Use joint space position control to move gripper ========================
     # T = 5 #seconds
     # steps = int(T/SIMULATION_TIME_STEP_S)
     # # robot_simulator.ballbot.set_barrett_hands_torque_mode()
@@ -179,6 +152,7 @@ if __name__ == "__main__":
     #         robot_simulator.publish_ros_data()
 
     #     time.sleep(SIMULATION_TIME_STEP_S)
+
 
     if LOG_VIDEO:
         robot_simulator.stop_video_log()

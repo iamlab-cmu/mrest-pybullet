@@ -45,11 +45,11 @@ BODY_JOINT_NAMES = ('xAngle', 'yAngle', 'yaw')
 # Knob joint names
 KNOB_JOINT_NAMES = ('JL_KnobHand', 'JR_KnobHand')
 
-# Barrett left hand joint names
+# Barrett left hand joint and link names
 BARRETT_LEFT_JOINT_NAMES = ('L_bh_j32_joint', 'L_bh_j33_joint', 'L_bh_j11_joint', 'L_bh_j12_joint', 'L_bh_j13_joint', 'L_bh_j21_joint', 'L_bh_j22_joint', 'L_bh_j23_joint')
-BARRETT_LEFT_LINK_NAMES = ()
+BARRETT_LEFT_LINK_NAMES = ('L_bh_base_link', 'L_bh_finger_31_link', 'L_bh_finger_32_link', 'L_bh_finger_33_link', 'L_bh_finger_11_link', 'L_bh_finger_12_link', 'L_bh_finger_13_link', 'L_bh_finger_21_link', 'L_bh_finger_22_link', 'L_bh_finger_23_link')
 
-# Barrett right hand joint names
+# Barrett right hand joint and link names
 BARRETT_RIGHT_JOINT_NAMES = ('R_bh_j32_joint', 'R_bh_j33_joint', 'R_bh_j11_joint', 'R_bh_j12_joint', 'R_bh_j13_joint', 'R_bh_j21_joint', 'R_bh_j22_joint', 'R_bh_j23_joint')
 BARRETT_RIGHT_LINK_NAMES = ('R_bh_base_link', 'R_bh_finger_31_link', 'R_bh_finger_32_link', 'R_bh_finger_33_link', 'R_bh_finger_11_link', 'R_bh_finger_12_link', 'R_bh_finger_13_link', 'R_bh_finger_21_link', 'R_bh_finger_22_link', 'R_bh_finger_23_link')
 
@@ -65,7 +65,8 @@ BODY_LASER_LINK_NAME = "laser"   # name of body laser link in URDF
 ENABLE_LASER = False
 
 TURRET_CAMERA_LINK_NAME = "camera_rgb_frame"   # name of turret camera link in URDF
-ENABLE_TURRET_CAMERA = False
+ENABLE_TURRET_CAMERA = True
+ENABLE_STATIC_CAMERA = True
 
 FT_SENSOR_JOINT_NAMES = ('RArm7-toolR','LArm7-toolL')
 

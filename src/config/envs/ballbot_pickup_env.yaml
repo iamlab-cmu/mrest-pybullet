@@ -1,0 +1,59 @@
+use_gui: False
+
+ballbot_initial_state:
+  left_arm:
+    randomize_arm_q: False
+    init_arm_q: [0.,0.,0.,0.,0.,0.,0.]
+    min_q: [0.,0.,0.,0.,0.,0.,0.]
+    max_q: [0.,0.,0.,0.,0.,0.,0.]
+  right_arm:
+    randomize_arm_q: False
+    init_arm_q: [0.,0.,0.,1.57,0.,0.,0.]
+    min_q: [0.,0.,0.,1.57,0.,0.,0.]
+    max_q: [0.,0.,0.,1.57,0.,0.,0.]
+  ball:
+    randomize_ball_pos: True
+    init_ball_pos: [0.0,0.0,0.8125] # z-location is body_height/2 + ball_radius + tolerance = 1.405/2 + 0.105838 + 0.0041
+    init_ball_orient: [0.0,0.0,0.0]
+    min_xy: [-0.1,-0.1]
+    max_xy: [0.1,0.1]
+  gripper_left:
+    randomize_q: False
+    init_state: 'close'
+  gripper_right:
+    randomize_q: False
+    init_state: 'open'
+  turret:
+    randomize_q: False
+    init_q: [0.,0.785398]  # ['turret_pan', 'turret_tilt']
+  control_modes:
+    arm_control_mode: 'position'
+    body_control_mode: 'balance'
+    turret_control_mode: 'position'
+
+
+env_initial_state:
+  table:
+    table_pos: [0.0, 1.5, 0.]
+  objects:
+    randomize_obj_locations: True
+    cube1:
+      init_pos: [-0.6, -0.4]
+      min_pos: [-0.6, -0.4]
+      max_pos: [-0.6, -0.4]
+    cube2:
+      init_pos: [0.2, -0.4]
+      min_pos: [0.1, -0.4]
+      max_pos: [0.2, -0.4]
+  randomize_obj_colors: False #TODO
+
+cameras:
+  enable_static_camera: True
+  enable_turret_camera: True
+
+logging:
+  log_video: False
+  
+data_collection:
+  pick:
+    num_demos_per_env: 100

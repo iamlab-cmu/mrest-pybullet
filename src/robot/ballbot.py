@@ -21,7 +21,7 @@ class Ballbot:
 
         self._turret_mode = p.POSITION_CONTROL
 
-        self._barrett_hands_mode = p.TORQUE_CONTROL
+        self._barrett_hands_mode = p.POSITION_CONTROL
 
         self.state = State()
         self.update_robot_state()
@@ -31,25 +31,18 @@ class Ballbot:
         
         # Add force torque sensors 
         self.enable_force_torque_sensors()
-
-        # State of the robot in BODY Frame
-        self.xAngleBody = 0.0
-        self.yAngleBody = 0.0
-        self.yawBody = 0.0
-
         
-        if ENABLE_TURRET_CAMERA:
-            viewMatrix = p.computeViewMatrix(
-                        cameraEyePosition=[0, 3, 2],
-                        cameraTargetPosition=[0, 0, 1],
-                        cameraUpVector=[0, 0, 1])
 
-            self.turretCamera_projectionMatrix = p.computeProjectionMatrixFOV(
-                            fov=45.0,
-                            aspect=1.0,
-                            nearVal=0.1,
-                            farVal=5.1)
-            self.update_turretCamera()
+        viewMatrix = p.computeViewMatrix(
+                    cameraEyePosition=[0, 3, 2],
+                    cameraTargetPosition=[0, 0, 1],
+                    cameraUpVector=[0, 0, 1])
+
+        self.turretCamera_projectionMatrix = p.computeProjectionMatrixFOV(
+                        fov=60.0,
+                        aspect=1.0,
+                        nearVal=0.1,
+                        farVal=5.1)
         # Example projection matrix from https://github.com/bulletphysics/bullet3/issues/1616
         # fov, aspect, nearplane, farplane = 60, 1.0, 0.01, 100
         # projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
@@ -59,6 +52,20 @@ class Ballbot:
         #                                             height=224,
         #                                             viewMatrix=viewMatrix,
         #                                             projectionMatrix=self.turretCamera_projectionMatrix)
+
+        self.static_camera_viewMatrix = p.computeViewMatrixFromYawPitchRoll(
+                    cameraTargetPosition=[0.0, 0.0, 1.0],
+                    distance=3.,
+                    yaw=180.,
+                    pitch=-20.,
+                    roll=0.,
+                    upAxisIndex=2)
+
+        self.staticCamera_projectionMatrix = p.computeProjectionMatrixFOV(
+                        fov=45.0,
+                        aspect=1.0,
+                        nearVal=0.1,
+                        farVal=5.1)
 
     def reset(self, startPos, startOrientationEuler):
         # Convert from Ballbot Body Orient notation to Pybullet notation
@@ -145,12 +152,17 @@ class Ballbot:
         # TODO make sure this is correct: friction between ball and ground plane
         p.changeDynamics(self.robot, 0, linearDamping=0.5, angularDamping=0.5)
 
+        if self.hand_type == 'barrett': # add more friction of barrett links to facilitate grasping
+            for link_name in BARRETT_RIGHT_LINK_NAMES:
+                p.changeDynamics(self.robot, self.linkIds[link_name], lateralFriction=1.7)
+
+
     def set_initial_config(self, joint_positions):
         for jointIndex in range(self.nJoints):
             p.resetJointState(self.robot, jointIndex,
                               joint_positions[jointIndex])
 
-    def set_arms_intial_config(self, joint_positions):
+    def set_arms_initial_config(self, joint_positions):
         for i in range(self.nArmJoints):
             p.resetJointState(self.robot, self.jointIds[i], joint_positions[i])
     
@@ -343,7 +355,15 @@ class Ballbot:
                                                     height=224,
                                                     viewMatrix=viewMatrix,
                                                     projectionMatrix=self.turretCamera_projectionMatrix)
-        return rgbImg
+        return np.array(rgbImg)
+
+    def update_staticCamera(self):
+        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+                                                    width=224,
+                                                    height=224,
+                                                    viewMatrix=self.static_camera_viewMatrix,
+                                                    projectionMatrix=self.staticCamera_projectionMatrix)
+        return np.array(rgbImg)
 
     def get_arms_state(self):
         self.arm_pos = [p.getJointState(self.robot, self.jointIds[i])[

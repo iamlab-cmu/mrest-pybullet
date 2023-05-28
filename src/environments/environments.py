@@ -28,7 +28,9 @@ class TableEnv(object):
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         # self.table = p.loadURDF("table/table.urdf", startPos, startOrientation)
         self.table = p.loadURDF(URDF_FOLDER_NAME + "table/table.urdf", startPos, startOrientation)
-
+        self.table_start_pos = startPos
+        self.table_height = 0.95
+        self.cube_height = 0.2
         colors = Colors()
         # boxStartPos = np.array(startPos) + np.array([-0.3, 0., 0.775])
         # self.box1 = p.loadURDF(
@@ -43,15 +45,16 @@ class TableEnv(object):
         # carStartPos = np.array(startPos) + np.array([-0.3, 0., 0.775])
         # carId = p.loadURDF('racecar/racecar.urdf', basePosition=carStartPos)
 
-        mugStartPos = np.array(startPos) + np.array([-0.4, -0., 0.95])
-        mugId = p.loadURDF('objects/mug.urdf', basePosition=mugStartPos)
-        duckStartPos = np.array(startPos) + np.array([0.4, -0., 0.95])
-        duckId = p.loadURDF('duck_vhacd.urdf', basePosition=duckStartPos)
-        cubeStartPos = np.array(startPos) + np.array([-0.6, -0.4, 0.95])
-        cubeId = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/cube.urdf", cubeStartPos, startOrientation)
-        p.changeVisualShape(cubeId, -1, rgbaColor=colors.blue)
+        # mugStartPos = np.array(startPos) + np.array([-0.4, -0., 0.95])
+        # mugId = p.loadURDF('objects/mug.urdf', basePosition=mugStartPos)
+        # duckStartPos = np.array(startPos) + np.array([0.4, -0., 0.95])
+        # duckId = p.loadURDF('duck_vhacd.urdf', basePosition=duckStartPos)
 
-        cubeStartPos = np.array(startPos) + np.array([0.2, -0.4, 0.95])
+        cubeStartPos = np.array(self.table_start_pos) + np.array([-0.6, -0.4, self.table_height+self.cube_height/2])
+        self.cubeId1 = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/cube.urdf", cubeStartPos, startOrientation)
+        p.changeVisualShape(self.cubeId1, -1, rgbaColor=colors.blue)
+
+        cubeStartPos = np.array(self.table_start_pos) + np.array([0.2, -0.4, self.table_height+self.cube_height/2])
         self.cubeId2 = p.loadURDF(URDF_FOLDER_NAME + "cardboard_box/cube.urdf", cubeStartPos, startOrientation)
         p.changeVisualShape(self.cubeId2, -1, rgbaColor=colors.red)
         p.changeDynamics(self.cubeId2, -1, lateralFriction=1.7)

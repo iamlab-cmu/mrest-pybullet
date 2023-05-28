@@ -82,7 +82,7 @@ class RobotSimulator(object):
                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0., 0.0, 0.0, 0.0]
         self.ballbot.set_initial_config(joint_positions)
         arm_joint_position = [0, 0, 0, 1.5, 0, 0, 0, 0, 0, 0, -1.5, 0, 0, 0]
-        self.ballbot.set_arms_intial_config(arm_joint_position)
+        self.ballbot.set_arms_initial_config(arm_joint_position)
 
         self.ballbot_state = BallState.BALANCE
         # self.ballbot.print_model_info()

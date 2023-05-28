@@ -16,6 +16,8 @@ import time
 from datetime import datetime
 import numpy as np
 from enum import Enum
+from environments.environments import TableEnv
+
 
 from robot.definitions import *
 from robot.ballbot import Ballbot as ballbot_sim
@@ -30,6 +32,7 @@ from controllers.barrett_right_hand_controller import BarrettRightHandController
 # TODO: simulation time step has to be set to 1/240 as it is the default pybullet time step
 #  can be changed using p.setTimeStep()
 SIMULATION_TIME_STEP_S = 1/240.
+SENSOR_TIME_STEP_S = 1/60.
 MAX_SIMULATION_TIME_S = 10
 USE_ROS = True
 PRINT_MODEL_INFO = True
@@ -62,33 +65,27 @@ else:
     PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
     # PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
 
+from robot.robot_simulator import BallState
 
-class BallState(Enum):
-    STATIC = 1
-    SAFETY_CHECK = 2
-    BALANCE = 3
-    OLC = 4
-    STATION_KEEP = 5
-    VEL_CONTROL = 6
-    BALANCE_LEGS_UP = 7
-    DFC = 8
-
-
-class RobotSimulator(object):
-    def __init__(self, 
-            startPos=[0.0, 0.0, 0.12], 
-            startOrientationEuler=[0, 0, 0], 
-            init_arm_joint_position=[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
-            init_left_gripper_state= 'close',
-            init_right_gripper_state='close',
-            ):
+class RobotSimulatorPickup(object):
+    def __init__(self, env_cfg=None):
+        
+        self.env_cfg = env_cfg
+        use_gui = env_cfg['use_gui']
+        self.enable_turret_camera = env_cfg['cameras']['enable_turret_camera']
+        self.enable_static_camera = env_cfg['cameras']['enable_static_camera']
 
         self.use_arm_olc = False
         self.use_arm_olc_com = False
+
         # set pybullet environment
-        self.physicsClient = p.connect(p.GUI)
+        if use_gui:
+            self.physicsClient = p.connect(p.GUI)
+        else:
+            self.physicsClient = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
-        # self.plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin") #without this (https://pybullet.org/Bullet/phpBB3/viewtopic.php?t=13395) issue arises
+        if not use_gui and (self.enable_turret_camera or self.enable_static_camera):
+            self.plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin") #without this (https://pybullet.org/Bullet/phpBB3/viewtopic.php?t=13395) issue arises
 
         # set environment physics
         p.setGravity(0, 0, -10)
@@ -97,32 +94,11 @@ class RobotSimulator(object):
         planeId = p.loadURDF("plane.urdf")
 
         # Load ballbot model
+        ball_frame_start_pos = [0.0,0.0,0.11]
+        ball_frame_start_orient_euler = env_cfg['ballbot_initial_state']['ball']['init_ball_orient']
         self.ballbot = ballbot_sim(urdf_path=PACKAGE_WS_PATH + URDF_NAME,
-                                   startPos=startPos, startOrientationEuler=startOrientationEuler)
+                                   startPos=ball_frame_start_pos, startOrientationEuler=ball_frame_start_orient_euler)
 
-        joint_positions = np.zeros(self.ballbot.nJoints)
-        # joint ID 3 is turret pan , joint ID 4 is turret tilt         
-        self.ballbot.set_initial_config(joint_positions)
-
-        self.ballbot.set_arms_initial_config(init_arm_joint_position)
-
-        turret_joint_position = [0., 0.] # ['turret_pan', 'turret_tilt']
-        self.ballbot.set_turret_intial_config(turret_joint_position)
-
-        if self.ballbot.hand_type == 'barrett':
-            if init_left_gripper_state == 'open':
-                init_barrett_left_joint_positions = np.zeros(self.ballbot.nBarrettLeftJoints)
-            else:
-                init_barrett_left_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
-            self.ballbot.set_barrett_left_hand_intial_config(init_barrett_left_joint_positions)
-
-            if init_right_gripper_state == 'open':
-                init_barrett_right_joint_positions = np.zeros(self.ballbot.nBarrettRightJoints)
-            else:
-                init_barrett_right_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
-            self.ballbot.set_barrett_right_hand_intial_config(init_barrett_right_joint_positions)
-
-        self.ballbot_state = BallState.BALANCE
         if PRINT_MODEL_INFO:
             self.ballbot.print_model_info()
             self.ballbot.print_joint_info()
@@ -130,39 +106,14 @@ class RobotSimulator(object):
 
         # By default have an empty environment
         self.environment = None
+        env = TableEnv(startPos=env_cfg['env_initial_state']['table']['table_pos'], startOrientationEuler=[
+                   0., 0., np.radians(0.)])
+        self.setup_environment(env)
 
-        # Control Variables
-        self.olcCmdXAng = 0.0
-        self.olcCmdYAng = 0.0
-        self.olcCmdXVel = 0.0
-        self.olcCmdYVel = 0.0
-        self.rarm_joint_command = init_arm_joint_position[:7]
-        self.larm_joint_command = init_arm_joint_position[7:]
-        self.rarm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
-        self.larm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
-
-        self.wrench_right = np.zeros(6)
-        self.wrench_left = np.zeros(6)
-
-        self.turret_joint_command = [0, 0] # pan, tilt
-        self.turret_torque_command = [0, 0] # pan, tilt
-
-        if self.ballbot.hand_type == 'barrett':
-            self.barrett_left_hand_joint_command = init_barrett_left_joint_positions.copy()
-            self.barrett_right_hand_joint_command = init_barrett_right_joint_positions.copy()
-            self.barrett_left_hand_torque_command = np.zeros(self.ballbot.nBarrettLeftJoints)
-            self.barrett_right_hand_torque_command = np.zeros(self.ballbot.nBarrettRightJoints)
-
-        self.rarm_ts_command = [0, 0, 0]
-        self.larm_ts_command = [0, 0, 0]
-
-        # Setup controller
-        self.setup_controller()
         if USE_ROS:
-            #p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-
             p.resetDebugVisualizerCamera(
-                cameraDistance=4.0, cameraYaw=110, cameraPitch=-30, cameraTargetPosition=[0.24, -0.02, -0.09])
+                cameraDistance=2.0, cameraYaw=180., cameraPitch=-20, cameraTargetPosition=[0.0, 0.0, 1.0])
+            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
             self.setup_ROS()
         else:
             self.setup_gui()
@@ -172,16 +123,133 @@ class RobotSimulator(object):
         self.physicsClientStatic = bc.BulletClient(connection_mode=p.DIRECT)
         self.physicsClientStatic.setGravity(0, 0, -10)
         self.robot_static = self.physicsClientStatic.loadURDF(
-            PACKAGE_WS_PATH + URDF_NAME, startPos, p.getQuaternionFromEuler(startOrientationEuler), useFixedBase=True)
+            PACKAGE_WS_PATH + URDF_NAME, ball_frame_start_pos, p.getQuaternionFromEuler(ball_frame_start_orient_euler), useFixedBase=True)
         for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
             self.physicsClientStatic.changeDynamics(
                 self.robot_static, j, linearDamping=0, angularDamping=0)
+            
+        self.reset()
+        self.ballbot.update_robot_state()
+
+    def reset_control_variables(self):
+        # Body
+        self.olcCmdXAng = 0.0
+        self.olcCmdYAng = 0.0
+        self.olcCmdXVel = 0.0
+        self.olcCmdYVel = 0.0
         
-        # Debugging: plotting EE goal location
-        # p.addUserDebugLine([0.3, 0.6, 1.2],
-        #                    [0.3, 0.6, 1.2+0.1], [0,1,0], lineWidth=20,lifeTime=1000)
-        # p.addUserDebugLine([-0.3, -0.6, 1.2],
-        #                    [-0.3, -0.6, 1.2+0.1], [0,0,1], lineWidth=20,lifeTime=1000)
+        # Arms
+        self.rarm_joint_command = self.init_arm_joint_position[:7]
+        self.larm_joint_command = self.init_arm_joint_position[7:]
+        self.arm_joint_command = self.init_arm_joint_position.copy()
+        self.rarm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
+        self.larm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
+
+        self.wrench_right = np.zeros(6)
+        self.wrench_left = np.zeros(6)
+
+        self.turret_joint_command = self.init_turret_joint_position # pan, tilt
+        self.turret_torque_command = [0, 0] # pan, tilt
+
+        if self.ballbot.hand_type == 'barrett':
+            self.barrett_left_hand_joint_command = self.init_barrett_left_joint_positions.copy()
+            self.barrett_right_hand_joint_command = self.init_barrett_right_joint_positions.copy()
+
+        self.rarm_ts_command = [0, 0, 0]
+        self.larm_ts_command = [0, 0, 0]
+
+    def reset_state(self):
+        # Reset ballbot base
+        if self.env_cfg['ballbot_initial_state']['ball']['randomize_ball_pos']:
+            init_ball_xy = np.random.uniform(
+                low=self.env_cfg['ballbot_initial_state']['ball']['min_xy'], 
+                high=self.env_cfg['ballbot_initial_state']['ball']['max_xy'])
+            init_ball_pos = [init_ball_xy[0], init_ball_xy[1], self.env_cfg['ballbot_initial_state']['ball']['init_ball_pos'][2]]
+        else:
+            init_ball_pos= self.env_cfg['ballbot_initial_state']['ball']['init_ball_pos']
+        p.resetBasePositionAndOrientation(self.ballbot.robot,
+                                        init_ball_pos,
+                                        p.getQuaternionFromEuler(self.env_cfg['ballbot_initial_state']['ball']['init_ball_orient']))
+
+        # Reset ballbot arms
+        if self.env_cfg['ballbot_initial_state']['left_arm']['randomize_arm_q'] or self.env_cfg['ballbot_initial_state']['right_arm']['randomize_arm_q']:
+            raise NotImplementedError('Randomization of arm initial joint states not implemented')
+        else:
+            self.init_arm_joint_position = np.append(
+                np.array(self.env_cfg['ballbot_initial_state']['right_arm']['init_arm_q']),
+                np.array(self.env_cfg['ballbot_initial_state']['left_arm']['init_arm_q'])
+            )
+        self.ballbot.set_arms_initial_config(self.init_arm_joint_position)
+
+        # Reset turret
+        if self.env_cfg['ballbot_initial_state']['turret']['randomize_q']:
+            raise NotImplementedError('Randomization of turret initial state not implemented')
+        else:
+            self.init_turret_joint_position = self.env_cfg['ballbot_initial_state']['turret']['init_q'] # ['turret_pan', 'turret_tilt']
+        self.ballbot.set_turret_intial_config(self.init_turret_joint_position)
+        
+        if self.ballbot.hand_type == 'barrett':
+            if self.env_cfg['ballbot_initial_state']['gripper_left']['randomize_q']:
+                raise NotImplementedError('Randomization of barrett left hand initial state not implemented')
+            else:
+                if self.env_cfg['ballbot_initial_state']['gripper_left']['init_state'] == 'open':
+                    self.init_barrett_left_joint_positions = np.zeros(self.ballbot.nBarrettLeftJoints)
+                else:
+                    self.init_barrett_left_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
+            self.ballbot.set_barrett_left_hand_intial_config(self.init_barrett_left_joint_positions)
+
+            if self.env_cfg['ballbot_initial_state']['gripper_left']['randomize_q']:
+                raise NotImplementedError('Randomization of barrett right hand initial state not implemented')
+            else:
+                if self.env_cfg['ballbot_initial_state']['gripper_right']['init_state'] == 'open':
+                    self.init_barrett_right_joint_positions = np.zeros(self.ballbot.nBarrettRightJoints)
+                else:
+                    self.init_barrett_right_joint_positions = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
+            self.ballbot.set_barrett_right_hand_intial_config(self.init_barrett_right_joint_positions)
+
+        # reset environment
+        if self.env_cfg['env_initial_state']['objects']['randomize_obj_locations']:
+            cube1_xy = np.random.uniform(
+                low=self.env_cfg['env_initial_state']['objects']['cube1']['min_pos'], 
+                high=self.env_cfg['env_initial_state']['objects']['cube1']['max_pos'])
+            cube2_xy = np.random.uniform(
+                low=self.env_cfg['env_initial_state']['objects']['cube2']['min_pos'], 
+                high=self.env_cfg['env_initial_state']['objects']['cube2']['max_pos'])
+        else:
+            cube1_xy = self.env_cfg['env_initial_state']['objects']['cube1']['init_pos']
+            cube2_xy = self.env_cfg['env_initial_state']['objects']['cube2']['init_pos']
+        
+        cube1_pos = np.array(self.environment.table_start_pos) + \
+            np.array([cube1_xy[0], cube1_xy[1], self.environment.table_height+self.environment.cube_height/2])
+        p.resetBasePositionAndOrientation(self.environment.cubeId1,
+                        cube1_pos,
+                        p.getQuaternionFromEuler([0.,0.,0.]))
+    
+        cube2_pos = np.array(self.environment.table_start_pos) + \
+            np.array([cube2_xy[0], cube2_xy[1], self.environment.table_height+self.environment.cube_height/2])
+        p.resetBasePositionAndOrientation(self.environment.cubeId2,
+                        cube2_pos,
+                        p.getQuaternionFromEuler([0.,0.,0.]))
+        
+    def reset(self, env_cfg=None):
+        # TODO: use env_cfg to reset block colors
+        self.current_step = 0
+        
+        self.setup_controller()
+        self.reset_state()
+        self.reset_control_variables()
+
+        self.ballbot._arm_mode = p.POSITION_CONTROL
+        self.ballbot._turret_mode = p.POSITION_CONTROL
+        self.ballbot._barrett_hands_mode = p.POSITION_CONTROL
+        self.ballbot_state = BallState.BALANCE
+
+        self.ballbot.update_robot_state()
+
+        for t in range(50):
+            self.step()
+            p.stepSimulation()
+            time.sleep(SIMULATION_TIME_STEP_S)
 
     def setup_gui(self):
         # set user debug parameters
@@ -406,7 +474,6 @@ class RobotSimulator(object):
         self.body_controller._com_balancing_control.set_gains(250,10,10)
         self.rarm_controller = ArmController()
         self.larm_controller = ArmController()
-        self.arm_joint_command = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.turret_controller = TurretController()
         if self.ballbot.hand_type == 'barrett':
             self.barrett_left_hand_controller = BarrettLeftHandController(self.ballbot.nBarrettLeftJoints)
@@ -432,14 +499,20 @@ class RobotSimulator(object):
             self.ballbot_state = BallState.BALANCE
             print("[ERROR] Invalid robot state, set by default to BALANCE")
 
-    def step(self):
+    def update_sensors(self):
+        # Use to update robot sensors at a lower frequency
+        # if self.current_step % int(SENSOR_TIME_STEP_S/SIMULATION_TIME_STEP_S) == 0:
 
-        # Update robot sensors
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
-        if ENABLE_TURRET_CAMERA:
+        if self.enable_turret_camera:
             self.turretCameraFeedback = self.ballbot.update_turretCamera()
-        
+        if self.enable_static_camera:
+            self.staticCameraFeedback = self.ballbot.update_staticCamera()
+
+    def step(self):
+
+        # self.update_sensors() # Very slow, use when needed
         # self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
@@ -551,8 +624,8 @@ class RobotSimulator(object):
 
             self.turret_controller.update_current_state(
                 self.ballbot.turret_pos, self.ballbot.turret_vel)
-            # self.turret_controller.set_desired_angles(
-            #     self.turret_joint_command)
+            self.turret_controller.set_desired_angles(
+                self.turret_joint_command)
             self.turret_controller.update(SIMULATION_TIME_STEP_S)
             turret_torques = self.turret_controller.turretTorques
         else:
@@ -599,6 +672,7 @@ class RobotSimulator(object):
             p.removeAllUserDebugItems()
             for c in contacts:
                 p.addUserDebugLine(c[6],c[6] + np.array(c[7])*c[9], [1,0,0])
+        self.current_step += 1
 
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])
