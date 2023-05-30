@@ -327,7 +327,7 @@ class Ballbot:
         # print("COMWorld: ", self.com_pos)
         # print("COMDrive: ", self.comPosInDriveFrame)
     
-    def update_turretCamera(self):
+    def update_turretCamera(self, width, height):
         turret_state = p.getLinkState(self.robot, self.linkIds[TURRET_CAMERA_LINK_NAME], computeForwardKinematics=True)
         com_p = turret_state[0]
         rot_matrix = p.getMatrixFromQuaternion(turret_state[1])
@@ -351,19 +351,19 @@ class Ballbot:
         #                 cameraUpVector=[0, 0, 1])
 
         width, height, rgbImg, depthImg, segImg = p.getCameraImage(
-                                                    width=224,
-                                                    height=224,
+                                                    width=width,
+                                                    height=height,
                                                     viewMatrix=viewMatrix,
                                                     projectionMatrix=self.turretCamera_projectionMatrix)
-        return np.array(rgbImg)
+        return np.array(rgbImg)[:,:,:3]
 
-    def update_staticCamera(self):
+    def update_staticCamera(self, width, height):
         width, height, rgbImg, depthImg, segImg = p.getCameraImage(
-                                                    width=224,
-                                                    height=224,
+                                                    width=width,
+                                                    height=height,
                                                     viewMatrix=self.static_camera_viewMatrix,
                                                     projectionMatrix=self.staticCamera_projectionMatrix)
-        return np.array(rgbImg)
+        return np.array(rgbImg)[:,:,:3]
 
     def get_arms_state(self):
         self.arm_pos = [p.getJointState(self.robot, self.jointIds[i])[

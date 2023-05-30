@@ -502,13 +502,13 @@ class RobotSimulatorPickup(object):
     def update_sensors(self):
         # Use to update robot sensors at a lower frequency
         # if self.current_step % int(SENSOR_TIME_STEP_S/SIMULATION_TIME_STEP_S) == 0:
-
+        
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
         if self.enable_turret_camera:
-            self.turretCameraFeedback = self.ballbot.update_turretCamera()
+            self.turretCameraFeedback = self.ballbot.update_turretCamera(self.env_cfg['cameras']['image_width'], self.env_cfg['cameras']['image_height'])
         if self.enable_static_camera:
-            self.staticCameraFeedback = self.ballbot.update_staticCamera()
+            self.staticCameraFeedback = self.ballbot.update_staticCamera(self.env_cfg['cameras']['image_width'], self.env_cfg['cameras']['image_height'])
 
     def step(self):
 

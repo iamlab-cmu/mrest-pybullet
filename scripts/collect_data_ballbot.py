@@ -132,19 +132,19 @@ def collect_data(num_trajs, main_data_dir, data_type, save_freq):
     for env_cfg in env_configs:
         env_name = get_env_name(env_cfg)
         to_save_env_configs[env_name] = env_cfg
-        # collect_and_save_demo_data_for_env_config(robot_simulator, data_dir, env_name, env_cfg, save_freq)
+        collect_and_save_demo_data_for_env_config(robot_simulator, data_dir, env_name, env_cfg, save_freq)
 
     save_env_config(to_save_env_configs, main_data_dir, f'{data_type}_env_configs')
     print(f"Did save demos at: {main_data_dir}")
 
 if __name__ == "__main__":
-    main_data_dir = Path('/home/saumyas/experiment_results/object_centric/r3m/data/ballbot_pickup_slow/train')
+    main_data_dir = Path('/home/saumyas/experiment_results/object_centric/r3m/data/ballbot_pickup_slow256')
     if not main_data_dir.exists():
         os.makedirs(main_data_dir)
     
     data_types = ['train']
     save_freq = 24
-    num_demos = 500
+    num_demos = 200
     
     for data_type in data_types:
         collect_data(num_demos, main_data_dir, data_type, save_freq)

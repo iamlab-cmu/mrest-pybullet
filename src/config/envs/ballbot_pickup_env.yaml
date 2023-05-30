@@ -50,6 +50,8 @@ env_initial_state:
 cameras:
   enable_static_camera: True
   enable_turret_camera: True
+  image_width: 256
+  image_height: 256
 
 logging:
   log_video: False
