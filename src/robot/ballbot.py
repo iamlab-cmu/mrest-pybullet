@@ -4,9 +4,10 @@ import numpy as np
 
 from robot.definitions import *
 from robot.state import State
-from utils import *
-from transformation import *
+from robot.utils import *
+from robot.transformation import *
 from sensors.lidar import Lidar
+from skills.utils import *
 
 MAX_IMBD_TORQUE_NM = 100
 MAX_YAW_TORQUE_NM = 100
@@ -57,6 +58,14 @@ class Ballbot:
                     cameraTargetPosition=[0.0, 0.0, 1.0],
                     distance=3.,
                     yaw=180.,
+                    pitch=-20.,
+                    roll=0.,
+                    upAxisIndex=2)
+
+        self.static_camera_viewMatrix_sideview = p.computeViewMatrixFromYawPitchRoll(
+                    cameraTargetPosition=[0.0, 1.0, 1.0],
+                    distance=3.,
+                    yaw=90.,
                     pitch=-20.,
                     roll=0.,
                     upAxisIndex=2)
@@ -257,6 +266,21 @@ class Ballbot:
         ballToWorldTransform = p.invertTransform(
             [0, 0, 0], worldToBallRotation)
         return p.rotateVector(ballToWorldTransform[1], np.array(pWorld).reshape(3, 1))
+    
+    def transformWorldToShoulderFrame(self, pWorld,  quatWorld, arm='left'):
+        shoulder_link_name = 'LArm0' if arm == 'left' else 'RArm0'
+        shoulder_frame_info = p.getLinkState(self.robot, self.linkIds[shoulder_link_name])
+
+        # shoulderFrame = convert_bullet_quat_to_quaternion(shoulder_frame_info[1])
+        # quatShoulder = shoulderFrame.inverse() * quatWorld
+
+        quatWorld = convert_quaternion_to_bullet_quat(quatWorld)
+        shoulderToWorldTransform = p.invertTransform(shoulder_frame_info[4], shoulder_frame_info[5])
+        pShoulder, quatShoulder = p.multiplyTransforms(shoulderToWorldTransform[0], shoulderToWorldTransform[1],
+                                    pWorld, quatWorld)
+        quatShoulder = convert_bullet_quat_to_quaternion(quatShoulder)
+
+        return pShoulder, quatShoulder
 
     def get_body_orientation(self):
         """
@@ -362,6 +386,14 @@ class Ballbot:
                                                     width=width,
                                                     height=height,
                                                     viewMatrix=self.static_camera_viewMatrix,
+                                                    projectionMatrix=self.staticCamera_projectionMatrix)
+        return np.array(rgbImg)[:,:,:3]
+
+    def update_staticCamera_sideview(self, width, height):
+        width, height, rgbImg, depthImg, segImg = p.getCameraImage(
+                                                    width=width,
+                                                    height=height,
+                                                    viewMatrix=self.static_camera_viewMatrix_sideview,
                                                     projectionMatrix=self.staticCamera_projectionMatrix)
         return np.array(rgbImg)[:,:,:3]
 

@@ -10,7 +10,7 @@ class BarrettLeftHandController(object):
             self._joint_controllers[j].set_max_output(1000)
         self.desiredAngles = np.array([0.0 for j in range(self.nJoints)])
         self.desiredAngleVel = np.array([0.0 for j in range(self.nJoints)])
-        self.set_gains([[1,0,0.1]]*nJoints)
+        self.set_gains([[5,0,0.1]]*nJoints)
 
     def set_gains(self, gains):
         for j in range(self.nJoints):

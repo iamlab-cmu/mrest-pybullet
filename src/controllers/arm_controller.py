@@ -60,7 +60,7 @@ class TaskSpaceArmController(object):
         self.desiredAcc = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
         # TODO tune gains
-        self.set_gains([[2000.0, 2000.0, 2000, 10., 10., 10.],
+        self.set_gains([[10000.0, 10000.0, 10000, 10., 10., 10.],
                         [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]])
         URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
         if arm == 'right':

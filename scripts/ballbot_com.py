@@ -6,7 +6,7 @@ import pybullet_data
 import math
 import numpy as np
 
-from utils import drawInertiaBox, computeCOMposVel
+from robot.utils import drawInertiaBox, computeCOMposVel
 
 sim_dt = 0.01
 

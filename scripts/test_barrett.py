@@ -17,7 +17,7 @@ from enum import Enum
 
 from robot.robot_simulator import *
 from robot.definitions import *
-from utils import *
+from robot.utils import *
 from environments.environments import TableEnv
 
 # Simulation parameters

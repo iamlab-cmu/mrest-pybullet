@@ -7,11 +7,12 @@ import numpy as np
 from enum import Enum
 from tqdm import trange
 import quaternion
+import pickle
 
 from robot.robot_simulator_pickup_env import *
 from robot.definitions import *
 from environments.environments import TableEnv
-from skills.arm_skills import GotoJointPosition, GotoTaskSpacePose
+from skills.arm_skills import GotoJointPosition, GotoTaskSpacePose, GotoTaskSpacePoseTSCMode
 from skills.composite_skills import *
 from skills.gripper_skills import OpenGripper, CloseGripper
 from skills.body_skills import GotoBallPosition
@@ -21,10 +22,14 @@ from omegaconf import OmegaConf
 LOG_VIDEO = False
 VIDEO_FILE_NAME = "ballbot_pickup_task"
 
+# def save_fancy_video_for_ppt(traj_info):
+    
+
 if __name__ == "__main__":
     # set pybullet environment
     env_cfg = OmegaConf.load('/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/src/config/envs/ballbot_pickup_env.yaml')
-    robot_simulator = RobotSimulatorPickup(env_cfg=env_cfg)
+    task_cfg = {'save_freqs': env_cfg['data_collection']['save_freqs']}
+    robot_simulator = RobotSimulatorPickup(env_cfg=env_cfg, task_cfg=task_cfg)
 
     if LOG_VIDEO:
         robot_simulator.start_video_log(VIDEO_FILE_NAME)
@@ -46,7 +51,7 @@ if __name__ == "__main__":
     # target_right_pos = np.array(right_ee_frame_info[0]) + np.array([0.0, 1.5, 0.2])
     # target_right_quat = quaternion.as_quat_array([0.50829406408023, -0.491436150946075, 0.492614818619556, 0.50740348288175]) # format = 'wxyz'
     
-    # skill = GotoTaskSpacePose(robot_simulator, 
+    # skill = GotoTaskSpacePoseTSCMode(robot_simulator, 
     #                           target_left_pos, 
     #                           target_left_quat,
     #                           target_right_pos, 
@@ -72,10 +77,36 @@ if __name__ == "__main__":
 
 
     ## ============= Pickup object using task space control ===================
+    vid_static = []
     for i in range(1):
         robot_simulator.reset()
-        skill = PickUpBlockSkill(robot_simulator, img_save_freq=24)
-        skill.execute()
+        skill = PickUpBlockSkill(robot_simulator, img_save_freqs=env_cfg['data_collection']['save_freqs'])
+        traj_info = skill.execute()
+        vid_static.extend(traj_info['vid_static_sideview'])
+
+    print("Finished executing. Saving video now")
+    df = DataFrame({
+        'wrench_right0': traj_info['observed_wrench'][:,0],
+        'wrench_right1': traj_info['observed_wrench'][:,1],
+        'wrench_right2': traj_info['observed_wrench'][:,2],
+        'wrench_right3': traj_info['observed_wrench'][:,3],
+        'wrench_right4': traj_info['observed_wrench'][:,4],
+        'wrench_right5': traj_info['observed_wrench'][:,5],
+        })
+    fig = df.plot().get_figure()
+    fig.savefig(f'./media/wrenchright.jpg')
+
+    with open('./media/info3.pickle', 'wb') as f:
+        pickle.dump(traj_info, f)
+    
+    print(traj_info['observed_wrench'].shape)
+    # save_fancy_video_for_ppt(traj_info)
+
+    # Video saving
+    # cl = ImageSequenceClip(vid_static, fps=10)
+    # cl.write_gif('./media/vid_static_sideview2.gif', fps=10, logger=None)
+    # del cl
+
 
     ## ================== Move near table using station keeping control =====================
     # T = 5 #seconds

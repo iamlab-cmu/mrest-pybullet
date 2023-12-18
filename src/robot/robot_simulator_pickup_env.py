@@ -9,20 +9,23 @@
 
 import pybullet as p
 import pybullet_data
-import pkgutil
-egl = pkgutil.get_loader('eglRenderer')
+
 import pybullet_utils.bullet_client as bc
 import time
 from datetime import datetime
 import numpy as np
 from enum import Enum
 from environments.environments import TableEnv
-
+import quaternion
+from omegaconf import OmegaConf
+from tqdm import trange
 
 from robot.definitions import *
 from robot.ballbot import Ballbot as ballbot_sim
 from controllers.body_controller import BodyController
+from controllers.outer_loop_controllers import StationKeepingController
 from controllers.arm_controller import ArmController
+from controllers.arm_controller import TaskSpaceArmController
 from controllers.turret_controller import TurretController
 from controllers.barrett_left_hand_controller import BarrettLeftHandController
 from controllers.barrett_right_hand_controller import BarrettRightHandController
@@ -34,9 +37,13 @@ from controllers.barrett_right_hand_controller import BarrettRightHandController
 SIMULATION_TIME_STEP_S = 1/240.
 SENSOR_TIME_STEP_S = 1/60.
 MAX_SIMULATION_TIME_S = 10
-USE_ROS = True
-PRINT_MODEL_INFO = True
+
+PRINT_MODEL_INFO = False
 DRAW_CONTACT_FORCES = False
+
+import os
+os.environ['MESA_GL_VERSION_OVERRIDE'] = '3.3'
+os.environ['MESA_GLSL_VERSION_OVERRIDE'] = '330'
 
 if USE_ROS:
     # ROS imports
@@ -61,14 +68,15 @@ if USE_ROS:
     PACKAGE_WS_PATH = rospack.get_path(
         'ballbot_arm_description').split("/ballbot_arm_description")[0]
 else:
-    # PACKAGE_WS_PATH =  '/home/rshu/Workspace/pybullet_ws/src/'
-    PACKAGE_WS_PATH =  '/usr0/home/cornelib/sandbox/bullet_ws/src/'
-    # PACKAGE_WS_PATH = '/home/ballbot/Workspace/pybullet_ws/src/'
+    PACKAGE_WS_PATH = NON_ROS_PATH
 
 from robot.robot_simulator import BallState
 
 class RobotSimulatorPickup(object):
-    def __init__(self, env_cfg=None):
+    def __init__(self, env_cfg=None, task_cfg=None):
+        self.task_cfg = task_cfg
+        if env_cfg is None:
+            env_cfg = OmegaConf.load('/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/src/config/envs/ballbot_pickup_env.yaml')
         
         self.env_cfg = env_cfg
         use_gui = env_cfg['use_gui']
@@ -84,7 +92,10 @@ class RobotSimulatorPickup(object):
         else:
             self.physicsClient = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # optionally
-        if not use_gui and (self.enable_turret_camera or self.enable_static_camera):
+        
+        if not use_gui and (self.enable_turret_camera or self.enable_static_camera): # if using camera without GUI on
+            import pkgutil
+            egl = pkgutil.get_loader('eglRenderer')
             self.plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin") #without this (https://pybullet.org/Bullet/phpBB3/viewtopic.php?t=13395) issue arises
 
         # set environment physics
@@ -116,8 +127,12 @@ class RobotSimulatorPickup(object):
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
             self.setup_ROS()
         else:
-            self.setup_gui()
-            self.read_user_params()
+            p.resetDebugVisualizerCamera(
+                cameraDistance=2.0, cameraYaw=180., cameraPitch=-20, cameraTargetPosition=[0.0, 0.0, 1.0])
+            p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+            # self.setup_gui()
+            # self.read_user_params()
+            # pass
 
         # setup static ballbot for arm gravity compensation
         self.physicsClientStatic = bc.BulletClient(connection_mode=p.DIRECT)
@@ -127,7 +142,8 @@ class RobotSimulatorPickup(object):
         for j in range(self.physicsClientStatic.getNumJoints(self.robot_static)):
             self.physicsClientStatic.changeDynamics(
                 self.robot_static, j, linearDamping=0, angularDamping=0)
-            
+        
+        # self.save_freq = self.task_cfg.get('FT_save_freq',4)
         self.reset()
         self.ballbot.update_robot_state()
 
@@ -142,8 +158,15 @@ class RobotSimulatorPickup(object):
         self.rarm_joint_command = self.init_arm_joint_position[:7]
         self.larm_joint_command = self.init_arm_joint_position[7:]
         self.arm_joint_command = self.init_arm_joint_position.copy()
+        
         self.rarm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
         self.larm_torque_command = np.zeros(int(self.ballbot.nArmJoints/2))
+
+        self.rarm_ts_command_pos = np.zeros((3,))
+        self.rarm_ts_command_quat = quaternion.from_float_array([1., 0., 0., 0.]) # TODO(saumya)
+        self.larm_ts_command_pos = np.zeros((3,))
+        self.larm_ts_command_quat = quaternion.from_float_array([1., 0., 0., 0.]) # TODO(saumya)
+        self.tsc_enable_base = False
 
         self.wrench_right = np.zeros(6)
         self.wrench_left = np.zeros(6)
@@ -157,6 +180,9 @@ class RobotSimulatorPickup(object):
 
         self.rarm_ts_command = [0, 0, 0]
         self.larm_ts_command = [0, 0, 0]
+
+        self.barrett_gripper_close_state = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])
+        self.barrett_gripper_open_state = np.array([0., 0., 0., 0., 0., 0., 0., 0.])
 
     def reset_state(self):
         # Reset ballbot base
@@ -208,13 +234,21 @@ class RobotSimulatorPickup(object):
             self.ballbot.set_barrett_right_hand_intial_config(self.init_barrett_right_joint_positions)
 
         # reset environment
+        successful_sample = False
         if self.env_cfg['env_initial_state']['objects']['randomize_obj_locations']:
-            cube1_xy = np.random.uniform(
-                low=self.env_cfg['env_initial_state']['objects']['cube1']['min_pos'], 
-                high=self.env_cfg['env_initial_state']['objects']['cube1']['max_pos'])
-            cube2_xy = np.random.uniform(
-                low=self.env_cfg['env_initial_state']['objects']['cube2']['min_pos'], 
-                high=self.env_cfg['env_initial_state']['objects']['cube2']['max_pos'])
+            for i in range(self.env_cfg['env_initial_state']['max_samples']):
+                cube1_xy = np.random.uniform(
+                    low=self.env_cfg['env_initial_state']['objects']['cube1']['min_pos'], 
+                    high=self.env_cfg['env_initial_state']['objects']['cube1']['max_pos'])
+                cube2_xy = np.random.uniform(
+                    low=self.env_cfg['env_initial_state']['objects']['cube2']['min_pos'], 
+                    high=self.env_cfg['env_initial_state']['objects']['cube2']['max_pos'])
+                if np.linalg.norm(cube1_xy[:2]-cube2_xy[:2]) > 0.2:
+                    successful_sample = True
+                    break
+            if not successful_sample:
+                cube1_xy = self.env_cfg['env_initial_state']['objects']['cube1']['init_pos']
+                cube2_xy = self.env_cfg['env_initial_state']['objects']['cube2']['init_pos']
         else:
             cube1_xy = self.env_cfg['env_initial_state']['objects']['cube1']['init_pos']
             cube2_xy = self.env_cfg['env_initial_state']['objects']['cube2']['init_pos']
@@ -234,12 +268,13 @@ class RobotSimulatorPickup(object):
     def reset(self, env_cfg=None):
         # TODO: use env_cfg to reset block colors
         self.current_step = 0
-        
+        self.contacted_block = False
+
         self.setup_controller()
         self.reset_state()
         self.reset_control_variables()
 
-        self.ballbot._arm_mode = p.POSITION_CONTROL
+        self.ballbot._arm_mode = p.POSITION_CONTROL # p.TORQUQ_CONTROL, TASK_SPACE_CONTROL
         self.ballbot._turret_mode = p.POSITION_CONTROL
         self.ballbot._barrett_hands_mode = p.POSITION_CONTROL
         self.ballbot_state = BallState.BALANCE
@@ -250,6 +285,57 @@ class RobotSimulatorPickup(object):
             self.step()
             p.stepSimulation()
             time.sleep(SIMULATION_TIME_STEP_S)
+            self._set_goal()
+        
+        return self._get_obs()
+
+    def _get_obs(self):
+        right_ee_frame_info = p.getLinkState(self.ballbot.robot, self.ballbot.linkIds['toolR'])
+        contacts = p.getContactPoints(self.ballbot.robot, self.environment.cubeId2)
+        obs_contact = np.array(0.)
+        if len(contacts) > 0 or self.contacted_block:
+            self.contacted_block = True
+            obs_contact = np.array(1.)
+        
+        obs = np.append(np.array(right_ee_frame_info[0]), obs_contact)
+        return obs
+
+    def _set_goal(self):
+        cube_pos, cube_quat = p.getBasePositionAndOrientation(self.environment.cubeId2)
+        self.target_right_pos_reach = np.array(cube_pos) + np.array([0., 0., 0.03])
+
+        self.target_right_pos_lift = self.target_right_pos_reach + np.array([0., 0.2, 0.1])
+        
+    def evaluate_state(self):
+        
+        cube_pos, cube_quat = p.getBasePositionAndOrientation(self.environment.cubeId2)
+
+        # Success criteria for lifting the cube
+        lifted_cube = np.linalg.norm(self.target_right_pos_lift - cube_pos) < 0.07
+
+        # Success criteria for grasping the cube
+        right_ee_frame_info = p.getLinkState(self.ballbot.robot, self.ballbot.linkIds['toolR'])
+        reached_cube = np.linalg.norm(right_ee_frame_info[0] - (np.array(cube_pos) + np.array([0., 0., 0.03]))) < 0.07
+        
+        gripper_closed = np.linalg.norm(self.ballbot.barrett_right_hand_pos - self.barrett_gripper_close_state) < 1.3
+        
+        success = reached_cube and gripper_closed
+
+        reward = 0.
+        info = {'success': success,}
+        return reward, info
+        
+    def set_arm_task_space_control_mode(self, arms='right', enable_base=True):
+        self.control_left_arm = True if (arms=='both' or arms == 'left') else False
+        self.control_right_arm = True if (arms=='both' or arms == 'right') else False
+        
+        self.ballbot._arm_mode = 'TASK_SPACE_CONTROL'
+        self.tsc_enable_base = enable_base
+        if enable_base:
+            self.update_robot_state(BallState.OLC)
+        else:
+            self.update_robot_state(BallState.BALANCE)
+        print(f"Arm control mode set to TASK SPACE CONTROL for {arms} arms with enable_base={enable_base}")
 
     def setup_gui(self):
         # set user debug parameters
@@ -475,6 +561,14 @@ class RobotSimulatorPickup(object):
         self.rarm_controller = ArmController()
         self.larm_controller = ArmController()
         self.turret_controller = TurretController()
+
+        self.task_space_left_arm_controller = TaskSpaceArmController(arm='left')
+        self.task_space_right_arm_controller = TaskSpaceArmController(arm='right')
+
+        self.tsc_ball_controller = StationKeepingController()
+        self.tsc_ball_controller.set_max_angle(6.)
+        self.tsc_ball_controller.set_gains(8., 0.0, 1., 8., 0.0, 1.) # kPx, kIx, kDx, kPy, kIy, kDy
+
         if self.ballbot.hand_type == 'barrett':
             self.barrett_left_hand_controller = BarrettLeftHandController(self.ballbot.nBarrettLeftJoints)
             self.barrett_right_hand_controller = BarrettRightHandController(self.ballbot.nBarrettRightJoints)
@@ -502,7 +596,6 @@ class RobotSimulatorPickup(object):
     def update_sensors(self):
         # Use to update robot sensors at a lower frequency
         # if self.current_step % int(SENSOR_TIME_STEP_S/SIMULATION_TIME_STEP_S) == 0:
-        
         if ENABLE_LASER:
             self.lidarFeedback = self.ballbot.lidar.update()
         if self.enable_turret_camera:
@@ -510,10 +603,18 @@ class RobotSimulatorPickup(object):
         if self.enable_static_camera:
             self.staticCameraFeedback = self.ballbot.update_staticCamera(self.env_cfg['cameras']['image_width'], self.env_cfg['cameras']['image_height'])
 
+    def render(self, camera_name='left_cap2', width=256, height=256):
+        if camera_name == 'left_cap2':
+            return self.ballbot.update_staticCamera(width, height)
+        elif camera_name == 'eye_in_hand_90':
+            return self.ballbot.update_turretCamera(width, height)
+        else:
+            NotImplementedError('Invalid camera name') 
+
     def step(self):
 
         # self.update_sensors() # Very slow, use when needed
-        # self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
+        self.wrench_right, self.wrench_left = self.ballbot.get_wrist_wrench_measurement()
 
         # Update robot state
         self.ballbot.update_robot_state()
@@ -529,8 +630,36 @@ class RobotSimulatorPickup(object):
             self.ballbot.ballPosInBodyOrient[0], self.ballbot.ballPosInBodyOrient[1])
         self.body_controller.update_ball_velocity(
             self.ballbot.ballLinVelInBodyOrient[0], self.ballbot.ballLinVelInBodyOrient[1])
+        
 
         """ Ball Commands """
+
+        # Task space controller
+        if self.tsc_enable_base and self.ballbot._arm_mode == 'TASK_SPACE_CONTROL':
+            xVelErr = 0.0 - self.ballbot.ballLinVelInBodyOrient[0]
+            yVelErr = 0.0 - self.ballbot.ballLinVelInBodyOrient[1]
+            
+            if self.control_left_arm:
+                left_ee_frame_info = p.getLinkState(self.ballbot.robot, self.ballbot.linkIds['toolL'])
+                left_PosErr_shoulder_frame = self.larm_ts_command_pos - left_ee_frame_info[0]
+            
+            if self.control_right_arm:
+                right_ee_frame_info = p.getLinkState(self.ballbot.robot, self.ballbot.linkIds['toolR'])
+                right_PosErr_shoulder_frame = self.rarm_ts_command_pos - right_ee_frame_info[0]
+            
+            if self.control_left_arm and self.control_right_arm:
+                PosErr_avg = (left_PosErr_shoulder_frame + right_PosErr_shoulder_frame)/2
+            elif self.control_left_arm:
+                PosErr_avg = left_PosErr_shoulder_frame.copy()
+            else:
+                PosErr_avg = right_PosErr_shoulder_frame.copy()
+
+            self.tsc_ball_controller.set_error_value(
+                    PosErr_avg[0], PosErr_avg[1], xVelErr, yVelErr)
+            self.tsc_ball_controller.get_angle_output()
+            self.olcCmdXAng = self.tsc_ball_controller._desired_y_body_angle
+            self.olcCmdYAng = self.tsc_ball_controller._desired_x_body_angle
+
         # Station Keeping controller
         if self.ballbot_state == BallState.STATION_KEEP:
             if not self.body_controller._station_keeping_started:
@@ -614,6 +743,35 @@ class RobotSimulatorPickup(object):
             self.larm_controller.set_gravity_torque(self.gravity_torques[7:])
             self.larm_controller.update(SIMULATION_TIME_STEP_S)
             larm_torques = self.larm_controller.armTorques
+        elif self.ballbot._arm_mode == 'TASK_SPACE_CONTROL':
+            if self.control_left_arm:
+                current_left_q = np.array(self.ballbot.arm_pos[7:])
+                current_left_qdot = np.array(self.ballbot.arm_vel[7:])
+                
+                des_left_ee_pos, des_left_ee_quat = self.ballbot.transformWorldToShoulderFrame(self.larm_ts_command_pos, 
+                                                                                        self.larm_ts_command_quat, arm='left')
+                self.task_space_left_arm_controller.set_desired_pose(des_left_ee_pos, des_left_ee_quat)
+                self.task_space_left_arm_controller.update_current_state(
+                    current_left_q, current_left_qdot)
+                self.task_space_left_arm_controller.update(SIMULATION_TIME_STEP_S)
+                larm_torques = np.array(self.task_space_left_arm_controller.armTorques).flatten()
+            else:
+                larm_torques = np.zeros(int(self.ballbot.nArmJoints/2))
+            
+            if self.control_right_arm:
+                current_right_q = np.array(self.ballbot.arm_pos[:7])
+                current_right_qdot = np.array(self.ballbot.arm_vel[:7])
+                
+                des_right_ee_pos, des_right_ee_quat = self.ballbot.transformWorldToShoulderFrame(self.rarm_ts_command_pos, 
+                                                                                        self.rarm_ts_command_quat, arm='right')
+                self.task_space_right_arm_controller.set_desired_pose(des_right_ee_pos, des_right_ee_quat)
+                self.task_space_right_arm_controller.update_current_state(
+                    current_right_q, current_right_qdot)
+                self.task_space_right_arm_controller.update(SIMULATION_TIME_STEP_S)
+                rarm_torques = np.array(self.task_space_right_arm_controller.armTorques).flatten()
+            else:
+                rarm_torques = np.zeros(int(self.ballbot.nArmJoints/2))
+
         else:
             rarm_torques = self.rarm_torque_command
             larm_torques = self.larm_torque_command
@@ -673,6 +831,40 @@ class RobotSimulatorPickup(object):
             for c in contacts:
                 p.addUserDebugLine(c[6],c[6] + np.array(c[7])*c[9], [1,0,0])
         self.current_step += 1
+
+    def step_tsc(self, action, action_type='delta_obs_pos', all_low_res = False, all_high_res = False):
+        # print('action:', action)
+        if all_low_res:
+            save_freq = self.task_cfg.get('I3_save_freq',24)
+        elif all_high_res:
+            save_freq = self.task_cfg.get('Ih_save_freq',12)
+        else:
+            save_freq = self.task_cfg.get('FT_save_freq',4)
+
+        right_ee_frame_info = p.getLinkState(self.ballbot.robot, self.ballbot.linkIds['toolR'])
+        # print('Current ee pos:', right_ee_frame_info[0])
+        if action_type == 'delta_obs_pos' or action_type == 'delta_des_tsc':
+            self.rarm_ts_command_pos = np.array(right_ee_frame_info[0]) + action[:3]
+        elif action_type == 'des_tsc':
+            self.rarm_ts_command_pos = action[:3]
+        else:
+            raise NotImplementedError("Action type not available")
+        
+        self.rarm_ts_command_quat = quaternion.as_quat_array([0.50829406408023, -0.491436150946075, 0.492614818619556, 0.50740348288175]) # format = 'wxyz'
+        # print('Desired ee pos:', self.rarm_ts_command_pos)
+        if action[3] > 0.5:
+            self.barrett_right_hand_joint_command = self.barrett_gripper_close_state.copy()
+        else:
+            self.barrett_right_hand_joint_command = self.barrett_gripper_open_state.copy()
+
+        # TODO: maybe do minjerk traj from current to desired?
+        for t in range(save_freq):
+            self.step()
+            p.stepSimulation()
+            time.sleep(SIMULATION_TIME_STEP_S)
+
+        reward, info = self.evaluate_state()
+        return self._get_obs(), reward, False, info
 
     def read_user_params(self):
         Kp = p.readUserDebugParameter(self.controller_gains[0])
