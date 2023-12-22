@@ -45,32 +45,19 @@ import os
 os.environ['MESA_GL_VERSION_OVERRIDE'] = '3.3'
 os.environ['MESA_GLSL_VERSION_OVERRIDE'] = '330'
 
-if USE_ROS:
-    # ROS imports
-    import rosgraph
-    import rospy
-    import rospkg
-    import tf2_ros
-    from rosgraph_msgs.msg import Clock
-    from ballbot_arm_msgs.msg import ArmCommand, ArmsJointState, TaskSpaceTrajectory
-    from rt_msgs.msg import OlcCmd, VelCmd, State, Odom
-    from std_msgs.msg import Float64MultiArray
-    from std_srvs.srv import SetBool
-    from sensor_msgs.msg import LaserScan
-    from sensor_msgs.msg import JointState
-    from geometry_msgs.msg import TransformStamped
-    from geometry_msgs.msg import WrenchStamped
-    from geometry_msgs.msg import Wrench
-    from tf2_msgs import *
+PACKAGE_WS_PATH = NON_ROS_PATH
 
-    # Find package work space to retrieve urdf
-    rospack = rospkg.RosPack()
-    PACKAGE_WS_PATH = rospack.get_path(
-        'ballbot_arm_description').split("/ballbot_arm_description")[0]
-else:
-    PACKAGE_WS_PATH = NON_ROS_PATH
+# from robot.robot_simulator import BallState
 
-from robot.robot_simulator import BallState
+class BallState(Enum):
+    STATIC = 1
+    SAFETY_CHECK = 2
+    BALANCE = 3
+    OLC = 4
+    STATION_KEEP = 5
+    VEL_CONTROL = 6
+    BALANCE_LEGS_UP = 7
+    DFC = 8
 
 class RobotSimulatorPickup(object):
     def __init__(self, env_cfg=None, task_cfg=None):

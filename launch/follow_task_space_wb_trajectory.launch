@@ -1,9 +1,0 @@
-<launch>
-
-  <!-- load trajectory -->
-  <rosparam file="$(find ballbot_pybullet_sim)/motions/test_push.yaml" command="load"/>
-
-  <!-- Main trajectory publisher node-->
-  <node name="task_space_wb_trajectory_publisher" pkg="ballbot_pybullet_sim" type="task_space_wb_trajectory_publisher.py" respawn="false" output="screen"/>
-
-</launch>

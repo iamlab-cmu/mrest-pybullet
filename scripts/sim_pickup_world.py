@@ -85,27 +85,27 @@ if __name__ == "__main__":
         vid_static.extend(traj_info['vid_static_sideview'])
 
     print("Finished executing. Saving video now")
-    df = DataFrame({
-        'wrench_right0': traj_info['observed_wrench'][:,0],
-        'wrench_right1': traj_info['observed_wrench'][:,1],
-        'wrench_right2': traj_info['observed_wrench'][:,2],
-        'wrench_right3': traj_info['observed_wrench'][:,3],
-        'wrench_right4': traj_info['observed_wrench'][:,4],
-        'wrench_right5': traj_info['observed_wrench'][:,5],
-        })
-    fig = df.plot().get_figure()
-    fig.savefig(f'./media/wrenchright.jpg')
+    # df = DataFrame({
+    #     'wrench_right0': traj_info['observed_wrench'][:,0],
+    #     'wrench_right1': traj_info['observed_wrench'][:,1],
+    #     'wrench_right2': traj_info['observed_wrench'][:,2],
+    #     'wrench_right3': traj_info['observed_wrench'][:,3],
+    #     'wrench_right4': traj_info['observed_wrench'][:,4],
+    #     'wrench_right5': traj_info['observed_wrench'][:,5],
+    #     })
+    # fig = df.plot().get_figure()
+    # fig.savefig(f'./media/wrenchright.jpg')
 
-    with open('./media/info3.pickle', 'wb') as f:
-        pickle.dump(traj_info, f)
+    # with open('./media/info3.pickle', 'wb') as f:
+    #     pickle.dump(traj_info, f)
     
-    print(traj_info['observed_wrench'].shape)
+    # print(traj_info['observed_wrench'].shape)
     # save_fancy_video_for_ppt(traj_info)
 
     # Video saving
-    # cl = ImageSequenceClip(vid_static, fps=10)
-    # cl.write_gif('./media/vid_static_sideview2.gif', fps=10, logger=None)
-    # del cl
+    cl = ImageSequenceClip(vid_static, fps=10)
+    cl.write_gif('./media/vid_static_sideview2.gif', fps=10, logger=None)
+    del cl
 
 
     ## ================== Move near table using station keeping control =====================
