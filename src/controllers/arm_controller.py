@@ -6,10 +6,10 @@ from robot.definitions import *
 import quaternion
 from .utils import *
 
-import rospkg
-rospack = rospkg.RosPack()
-PACKAGE_WS_PATH = rospack.get_path(
-    'ballbot_arm_description').split("/ballbot_arm_description")[0]
+# import rospkg
+# rospack = rospkg.RosPack()
+# PACKAGE_WS_PATH = rospack.get_path(
+#     'ballbot_arm_description').split("/ballbot_arm_description")[0]
 
 class ArmController(object):
     def __init__(self):
@@ -62,13 +62,13 @@ class TaskSpaceArmController(object):
         # TODO tune gains
         self.set_gains([[10000.0, 10000.0, 10000, 10., 10., 10.],
                         [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]])
-        URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
+        URDF_NAME = "/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
         if arm == 'right':
-            (status, self.tree) = kdl_parser.treeFromFile(PACKAGE_WS_PATH + URDF_NAME)
+            (status, self.tree) = kdl_parser.treeFromFile(URDF_NAME)
             self.chain = self.tree.getChain("RArm0", "toolR")
             self.desiredPos = np.array([[0.0, -0.4, 0.4]])
         elif arm == 'left':
-            (status, self.tree) = kdl_parser.treeFromFile(PACKAGE_WS_PATH + URDF_NAME)
+            (status, self.tree) = kdl_parser.treeFromFile(URDF_NAME)
             self.chain = self.tree.getChain("LArm0", "toolL")
             self.desiredPos = np.array([[0.0, 0.4, 0.4]])
         else:

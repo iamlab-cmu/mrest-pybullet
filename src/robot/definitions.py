@@ -7,7 +7,7 @@ from typing import Tuple
 USE_ROS = False
 NON_ROS_PATH = '/home/saumyas/ballbot_sim_py3_ws/src/'
 # URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_plus_pybullet.urdf"
-URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands_toolLR.urdf"
+URDF_NAME = "/ballbot_pybullet_sim/urdf/ballbot_pybullet_wBarrettHands_toolLR.urdf"
 # URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands2.urdf"
 # URDF_NAME = "/ballbot_arm_description/robots/urdf/ballbot_pybullet_wBarrettHands.urdf"
 # URDF_NAME = "/ballbot_arm_description/robots/urdf/test_barrett_cam.urdf"
