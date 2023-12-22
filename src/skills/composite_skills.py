@@ -130,7 +130,7 @@ class PickUpBlockSkill():
             self.ball_controller = StationKeepingController()
             self.ball_controller.set_max_angle(6.)
             self.ball_controller.set_gains(9., 0.0, 1., 9., 0.0, 1.) # kPx, kIx, kDx, kPy, kIy, kDy
-            robot_simulator.update_robot_state(BallState.OLC)
+            self.robot_simulator.update_robot_state(BallState.OLC)
 
         self.robot_simulator.ballbot.set_arm_torque_mode()
         self.gripper_close_state = np.array([1.47, 0., 0., 1.47, 0., 0., 1.47, 0.])

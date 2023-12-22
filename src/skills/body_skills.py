@@ -1,6 +1,6 @@
 import numpy as np
 import pybullet as p
-from robot.robot_simulator import *
+from robot.robot_simulator_pickup_env import *
 import time
 
 class GotoBallPosition():

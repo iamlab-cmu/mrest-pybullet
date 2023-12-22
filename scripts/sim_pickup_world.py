@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     # Video saving
     cl = ImageSequenceClip(vid_static, fps=10)
-    cl.write_gif('./media/vid_static_sideview2.gif', fps=10, logger=None)
+    cl.write_gif('./media/vid_static_sideview_test2.gif', fps=10, logger=None)
     del cl
 
 
