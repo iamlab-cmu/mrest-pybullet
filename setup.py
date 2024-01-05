@@ -1,11 +1,18 @@
-# ! DO NOT MANUALLY INVOKE THIS setup.py, USE CATKIN INSTEAD
-from distutils.core import setup
-from catkin_pkg.python_setup import generate_distutils_setup
+import os
+import sys
+from setuptools import setup, find_packages
 
-setup_args = generate_distutils_setup(
-    packages=['controllers', 'environments', 'robot', 'sensors', 'skills'],
-    scripts=[''],
-    package_dir={'': 'src'}
+if sys.version_info.major != 3:
+    print("This Python is only compatible with Python 3, but you are running "
+          "Python {}. The installation will likely fail.".format(sys.version_info.major))
+
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
+setup(
+    name='ballbot_pybullet_sim',
+    description='Pybullet simulation environment for ballbot',
+    install_requires=[
+        'pybullet', 'numpy', 'tqdm', 'omegaconf', 'scipy', 'pandas', 'moviepy', 'matplotlib',
+    ],
 )
-
-setup(**setup_args)

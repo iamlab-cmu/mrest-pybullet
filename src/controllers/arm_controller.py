@@ -62,7 +62,7 @@ class TaskSpaceArmController(object):
         # TODO tune gains
         self.set_gains([[10000.0, 10000.0, 10000, 10., 10., 10.],
                         [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]])
-        URDF_NAME = "/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
+        URDF_NAME = "/home/saumyas/sims/ballbot_ws/src/ballbot_pybullet_sim/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
         if arm == 'right':
             (status, self.tree) = kdl_parser.treeFromFile(URDF_NAME)
             self.chain = self.tree.getChain("RArm0", "toolR")

@@ -78,7 +78,7 @@ class PickUpBlockSkill():
         
         self.robot_simulator = robot_simulator
         self.enable_base = True
-        self.debug = True
+        self.debug = False
         self.contacted_block = False
         self.interp_type = 'min_jerk'
         self.termination_condition = 'goal' # time

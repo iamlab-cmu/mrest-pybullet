@@ -3,3 +3,4 @@ scripts/video_logs/*
 src/controllers/__pycache__/*
 *.pyc
 media/
+*.egg-info

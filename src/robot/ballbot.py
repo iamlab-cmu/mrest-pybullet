@@ -84,6 +84,7 @@ class Ballbot:
             startOrientationEulerStandardFrame)
         # self.robot = p.loadURDF(self._urdf_path, startPos,
         #                         startOrientation, useFixedBase=True, flags=p.URDF_USE_INERTIA_FROM_FILE)
+
         self.robot = p.loadURDF(self._urdf_path, startPos,
                                 startOrientation, useFixedBase=False)
         
