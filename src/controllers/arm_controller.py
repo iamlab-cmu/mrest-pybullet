@@ -1,15 +1,10 @@
 from .basic_controllers import PIDController
 import numpy as np
 import PyKDL as kdl
-import kdl_parser_py.urdf as kdl_parser
 from robot.definitions import *
 import quaternion
-from .utils import *
-
-# import rospkg
-# rospack = rospkg.RosPack()
-# PACKAGE_WS_PATH = rospack.get_path(
-#     'ballbot_arm_description').split("/ballbot_arm_description")[0]
+from .utils import angle_axis_between_quats
+from .urdf_utils import treeFromFile
 
 class ArmController(object):
     def __init__(self):
@@ -64,11 +59,11 @@ class TaskSpaceArmController(object):
                         [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]])
         URDF_NAME = "/home/saumyas/sims/ballbot_ws/src/ballbot_pybullet_sim/urdf/ballbot_pybullet_wBarrettHands_toolLR_revolute.urdf"
         if arm == 'right':
-            (status, self.tree) = kdl_parser.treeFromFile(URDF_NAME)
+            (status, self.tree) = treeFromFile(URDF_NAME)
             self.chain = self.tree.getChain("RArm0", "toolR")
             self.desiredPos = np.array([[0.0, -0.4, 0.4]])
         elif arm == 'left':
-            (status, self.tree) = kdl_parser.treeFromFile(URDF_NAME)
+            (status, self.tree) = treeFromFile(URDF_NAME)
             self.chain = self.tree.getChain("LArm0", "toolL")
             self.desiredPos = np.array([[0.0, 0.4, 0.4]])
         else:
