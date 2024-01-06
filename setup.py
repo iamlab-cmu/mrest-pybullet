@@ -13,6 +13,7 @@ setup(
     name='ballbot_pybullet_sim',
     description='Pybullet simulation environment for ballbot',
     install_requires=[
-        'pybullet', 'numpy', 'tqdm', 'omegaconf', 'scipy', 'pandas', 'moviepy', 'matplotlib',
+        'pybullet', 'numpy', 'tqdm', 'omegaconf', 
+        'scipy', 'pandas', 'moviepy', 'matplotlib', 'urdf-parser-py',
     ],
 )

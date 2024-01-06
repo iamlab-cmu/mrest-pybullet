@@ -63,7 +63,7 @@ class RobotSimulatorPickup(object):
     def __init__(self, env_cfg=None, task_cfg=None):
         self.task_cfg = task_cfg
         if env_cfg is None:
-            env_cfg = OmegaConf.load('/home/saumyas/ballbot_sim_py3_ws/src/ballbot_pybullet_sim/src/config/envs/ballbot_pickup_env.yaml')
+            env_cfg = OmegaConf.load('/home/saumyas/sims/ballbot_ws/src/ballbot_pybullet_sim/src/config/envs/ballbot_pickup_env.yaml')
         
         self.env_cfg = env_cfg
         use_gui = env_cfg['use_gui']
