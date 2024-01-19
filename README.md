@@ -1,6 +1,6 @@
 # Ballbot PyBullet Sim
 
-This package uses PyBullte to simulate the CMU ballbot.
+This is Pybullet-based CMU Ballbot simulation environment associated with our CoRL 2023 paper -- [Multi-Resolution Sensing for Real-Time Control with Vision-Language Models](https://openreview.net/forum?id=WuBv9-IGDUA). 
 
 ## Installation instructions
  
